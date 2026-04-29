@@ -94,6 +94,7 @@ describe("applyGPC", () => {
       policyVersion: "",
       decidedAt: null,
       source: "default",
+      repromptReason: null,
       ...overrides,
     };
   }

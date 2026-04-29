@@ -8,6 +8,7 @@ import {
   type ConsentStore,
   type Jurisdiction,
   type OpenCookiesConfig,
+  type RepromptReason,
   type Route,
 } from "@opencookies/core";
 import { getContext, onDestroy, setContext } from "svelte";
@@ -60,6 +61,10 @@ export class ConsentRune {
     return this.#state.decidedAt;
   }
 
+  get repromptReason(): RepromptReason | null {
+    return this.#state.repromptReason;
+  }
+
   acceptAll = (opts?: ActionOptions): void => this.#store.acceptAll(opts);
   acceptNecessary = (opts?: ActionOptions): void => this.#store.acceptNecessary(opts);
   reject = (opts?: ActionOptions): void => this.#store.reject(opts);
@@ -75,6 +80,11 @@ export class ConsentRune {
   getConsentRecord = (): ConsentRecord | null => {
     void this.#state;
     return this.#store.getConsentRecord();
+  };
+
+  getPreviousRecord = (): ConsentRecord | null => {
+    void this.#state;
+    return this.#store.getPreviousRecord();
   };
 }
 

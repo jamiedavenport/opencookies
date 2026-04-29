@@ -2,6 +2,7 @@ import { evaluate } from "./expr.ts";
 import { applyGPC } from "./gpc.ts";
 import { resolveLocale } from "./locale.ts";
 import { fromUnknown, recordEquals, toRecord } from "./storage/record.ts";
+import { evaluateTriggers } from "./triggers.ts";
 import type {
   ActionOptions,
   ConsentExpr,
@@ -11,6 +12,7 @@ import type {
   ConsentStore,
   Jurisdiction,
   OpenCookiesConfig,
+  RepromptReason,
   ResolverContext,
   Route,
 } from "./types.ts";
@@ -24,40 +26,50 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
   const initialJurisdiction = resolveSync(config, config.request);
   const initialRecord = readSync(config, locale);
 
-  let state: ConsentState = applyGPC(
-    mergeRecord(
-      {
-        route: config.initialRoute ?? "cookie",
-        categories: config.categories,
-        decisions: Object.fromEntries(config.categories.map((c) => [c.key, c.locked === true])),
-        jurisdiction: initialJurisdiction.value,
-        policyVersion: config.policyVersion ?? "",
-        decidedAt: null,
-        source: "default",
-      },
-      initialRecord.value,
-    ),
-    config,
-  );
+  const baseState: ConsentState = {
+    route: config.initialRoute ?? "cookie",
+    categories: config.categories,
+    decisions: Object.fromEntries(config.categories.map((c) => [c.key, c.locked === true])),
+    jurisdiction: initialJurisdiction.value,
+    policyVersion: config.policyVersion ?? "",
+    decidedAt: null,
+    source: "default",
+    repromptReason: null,
+  };
 
-  let lastDecisionSource: ConsentRecordSource | null = initialRecord.value?.source ?? null;
+  let state: ConsentState;
+  let lastDecisionSource: ConsentRecordSource | null;
   let lastWritten: ConsentRecord | null = initialRecord.value;
+  let previousRecord: ConsentRecord | null = null;
   let suspendWrite = false;
+  let lastDispatchedReason: RepromptReason | null = null;
+
+  if (initialRecord.value !== null) {
+    const reason = checkTriggers(initialRecord.value, baseState.jurisdiction);
+    if (reason !== null) {
+      previousRecord = initialRecord.value;
+      state = applyGPC({ ...baseState, repromptReason: reason }, config);
+      lastDecisionSource = null;
+    } else {
+      state = applyGPC(mergeRecord(baseState, initialRecord.value), config);
+      lastDecisionSource = initialRecord.value.source;
+    }
+  } else {
+    state = applyGPC(baseState, config);
+    lastDecisionSource = null;
+  }
+  maybeDispatchReprompt();
 
   if (initialRecord.pending) {
     void initialRecord.pending.then((record) => {
       if (record === null) return;
-      suspendWrite = true;
-      commit(applyGPC(mergeRecord(state, record), config));
-      suspendWrite = false;
-      lastDecisionSource = record.source;
-      lastWritten = record;
+      handleIncomingRecord(record);
     });
   }
 
   if (initialJurisdiction.pending) {
     void initialJurisdiction.pending.then((value) => {
-      commit(applyGPC({ ...state, jurisdiction: value }, config));
+      handleJurisdictionChange(value);
     });
   }
 
@@ -65,18 +77,86 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
     config.adapter.subscribe((raw) => {
       const record = fromUnknown(raw, locale);
       if (record === null) return;
-      suspendWrite = true;
-      commit(applyGPC(mergeRecord(state, record), config));
-      suspendWrite = false;
+      handleIncomingRecord(record);
+    });
+  }
+
+  function handleIncomingRecord(record: ConsentRecord): void {
+    suspendWrite = true;
+    const reason = checkTriggers(record, state.jurisdiction);
+    if (reason !== null) {
+      previousRecord = record;
+      lastDecisionSource = null;
+      lastWritten = record;
+      commit(applyGPC(invalidate(state, reason), config));
+    } else {
       lastDecisionSource = record.source;
       lastWritten = record;
+      previousRecord = null;
+      commit(applyGPC(mergeRecord(state, record), config));
+    }
+    suspendWrite = false;
+  }
+
+  function handleJurisdictionChange(value: Jurisdiction | null): void {
+    let next: ConsentState = { ...state, jurisdiction: value };
+    if (state.repromptReason === null && lastWritten !== null) {
+      const reason = evaluateTriggers({
+        record: lastWritten,
+        triggers: config.triggers,
+        policyVersion: config.policyVersion ?? "",
+        categories: config.categories,
+        jurisdiction: value,
+        now: Date.now(),
+      });
+      if (reason !== null) {
+        previousRecord = lastWritten;
+        lastDecisionSource = null;
+        next = invalidate(next, reason);
+      }
+    }
+    commit(applyGPC(next, config));
+  }
+
+  function checkTriggers(
+    record: ConsentRecord,
+    jurisdiction: Jurisdiction | null,
+  ): RepromptReason | null {
+    return evaluateTriggers({
+      record,
+      triggers: config.triggers,
+      policyVersion: config.policyVersion ?? "",
+      categories: config.categories,
+      jurisdiction,
+      now: Date.now(),
     });
+  }
+
+  function invalidate(current: ConsentState, reason: RepromptReason): ConsentState {
+    return {
+      ...current,
+      decisions: Object.fromEntries(current.categories.map((c) => [c.key, c.locked === true])),
+      decidedAt: null,
+      route: "cookie",
+      source: "default",
+      repromptReason: reason,
+    };
+  }
+
+  function maybeDispatchReprompt(): void {
+    if (state.repromptReason !== null && state.repromptReason !== lastDispatchedReason) {
+      lastDispatchedReason = state.repromptReason;
+      dispatchRepromptEvent(state.repromptReason);
+    } else if (state.repromptReason === null) {
+      lastDispatchedReason = null;
+    }
   }
 
   function commit(next: ConsentState): void {
     state = next;
     for (const listener of listeners) listener(state);
     persist();
+    maybeDispatchReprompt();
   }
 
   function persist(): void {
@@ -118,6 +198,9 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
       if (state.decidedAt === null || lastDecisionSource === null) return null;
       return toRecord(state, lastDecisionSource, locale);
     },
+    getPreviousRecord() {
+      return previousRecord;
+    },
     subscribe(listener: Listener) {
       listeners.add(listener);
       return () => {
@@ -126,32 +209,38 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
     },
     acceptAll(opts?: ActionOptions) {
       lastDecisionSource = inferSource(state.route, opts);
+      previousRecord = null;
       commit({
         ...state,
         decisions: decisionsAll(true),
         decidedAt: new Date().toISOString(),
         route: "closed",
         source: "user",
+        repromptReason: null,
       });
     },
     acceptNecessary(opts?: ActionOptions) {
       lastDecisionSource = inferSource(state.route, opts);
+      previousRecord = null;
       commit({
         ...state,
         decisions: decisionsNecessary(),
         decidedAt: new Date().toISOString(),
         route: "closed",
         source: "user",
+        repromptReason: null,
       });
     },
     reject(opts?: ActionOptions) {
       lastDecisionSource = inferSource(state.route, opts);
+      previousRecord = null;
       commit({
         ...state,
         decisions: decisionsNecessary(),
         decidedAt: new Date().toISOString(),
         route: "closed",
         source: "user",
+        repromptReason: null,
       });
     },
     toggle(category: string, opts?: ActionOptions) {
@@ -169,11 +258,13 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
     },
     save(opts?: ActionOptions) {
       lastDecisionSource = inferSource(state.route, opts);
+      previousRecord = null;
       commit({
         ...state,
         decidedAt: new Date().toISOString(),
         route: "closed",
         source: "user",
+        repromptReason: null,
       });
     },
     setRoute(route: Route) {
@@ -196,10 +287,23 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         return state.jurisdiction;
       }
       const next = await safeResolve(raw);
-      if (next.ok) commit(applyGPC({ ...state, jurisdiction: next.value }, config));
+      if (next.ok) handleJurisdictionChange(next.value);
       return state.jurisdiction;
     },
   };
+}
+
+function dispatchRepromptEvent(reason: RepromptReason): void {
+  queueMicrotask(() => {
+    try {
+      const target = globalThis as { dispatchEvent?: (e: Event) => boolean };
+      if (typeof CustomEvent !== "undefined" && typeof target.dispatchEvent === "function") {
+        target.dispatchEvent(new CustomEvent("oncookies:reprompt", { detail: { reason } }));
+      }
+    } catch {
+      // Best-effort: ignore environments without CustomEvent/dispatchEvent.
+    }
+  });
 }
 
 type InitialJurisdiction = {
@@ -300,5 +404,6 @@ function mergeRecord(state: ConsentState, record: ConsentRecord | null): Consent
     policyVersion: record.policyVersion || state.policyVersion,
     decidedAt: record.decidedAt,
     source: "user",
+    repromptReason: null,
   };
 }

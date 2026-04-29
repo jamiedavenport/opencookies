@@ -8,6 +8,7 @@ export type {
   ConsentStore,
   Jurisdiction,
   OpenCookiesConfig,
+  RepromptReason,
   Route,
 } from "@opencookies/core";
 export { default as ConsentGate } from "./ConsentGate.svelte";

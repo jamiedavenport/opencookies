@@ -844,4 +844,292 @@ describe("createConsentStore", () => {
       expect(store.getConsentRecord()?.locale).toBe("en");
     });
   });
+
+  describe("re-consent triggers", () => {
+    function v1Record(overrides: Partial<ConsentRecord> = {}): ConsentRecord {
+      return {
+        schemaVersion: 1,
+        decisions: { essential: true, analytics: true, marketing: true },
+        jurisdiction: "EEA",
+        policyVersion: "v1",
+        decidedAt: "2026-04-01T00:00:00.000Z",
+        locale: "en-GB",
+        source: "banner",
+        ...overrides,
+      };
+    }
+
+    function adapterFor(record: ConsentRecord | null): {
+      adapter: StorageAdapter;
+      writes: ConsentRecord[];
+    } {
+      const writes: ConsentRecord[] = [];
+      return {
+        writes,
+        adapter: {
+          read: () => record,
+          write: (r) => {
+            writes.push(r);
+          },
+          clear: () => {},
+        },
+      };
+    }
+
+    function listenForReprompt(): { events: { reason: string }[]; off: () => void } {
+      const events: { reason: string }[] = [];
+      const dispatchEvent = vi.fn((event: Event) => {
+        if (event.type === "oncookies:reprompt") {
+          const detail = (event as CustomEvent).detail as { reason: string };
+          events.push(detail);
+        }
+        return true;
+      });
+      vi.stubGlobal("dispatchEvent", dispatchEvent);
+      return {
+        events,
+        off: () => vi.unstubAllGlobals(),
+      };
+    }
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    });
+
+    describe("policyVersionChanged", () => {
+      it("invalidates state when stored policyVersion differs from config", () => {
+        const { adapter } = adapterFor(v1Record({ policyVersion: "v1" }));
+        const store = createConsentStore(
+          makeConfig({
+            adapter,
+            policyVersion: "v2",
+            triggers: { policyVersionChanged: true },
+          }),
+        );
+        const s = store.getState();
+        expect(s.repromptReason).toBe("policyVersion");
+        expect(s.route).toBe("cookie");
+        expect(s.decidedAt).toBeNull();
+        expect(s.decisions).toEqual({ essential: true, analytics: false, marketing: false });
+        expect(store.getConsentRecord()).toBeNull();
+        expect(store.getPreviousRecord()?.policyVersion).toBe("v1");
+      });
+
+      it("does not invalidate when versions match", () => {
+        const { adapter } = adapterFor(v1Record({ policyVersion: "v1" }));
+        const store = createConsentStore(
+          makeConfig({
+            adapter,
+            policyVersion: "v1",
+            triggers: { policyVersionChanged: true },
+          }),
+        );
+        expect(store.getState().repromptReason).toBeNull();
+        expect(store.getPreviousRecord()).toBeNull();
+      });
+    });
+
+    describe("categoriesAdded", () => {
+      it("invalidates when a new category appears in config", () => {
+        const stored = v1Record({
+          decisions: { essential: true, analytics: true },
+          policyVersion: "v1",
+        });
+        const { adapter } = adapterFor(stored);
+        const store = createConsentStore(
+          makeConfig({
+            adapter,
+            policyVersion: "v1",
+            triggers: { categoriesAdded: true },
+          }),
+        );
+        expect(store.getState().repromptReason).toBe("categoriesAdded");
+        expect(store.getPreviousRecord()).toMatchObject({
+          decisions: { essential: true, analytics: true },
+        });
+      });
+
+      it("does not fire if the existing category set matches", () => {
+        const { adapter } = adapterFor(v1Record({ policyVersion: "v1" }));
+        const store = createConsentStore(
+          makeConfig({
+            adapter,
+            policyVersion: "v1",
+            triggers: { categoriesAdded: true },
+          }),
+        );
+        expect(store.getState().repromptReason).toBeNull();
+      });
+    });
+
+    describe("expiresAfter", () => {
+      it("invalidates when the record is older than the duration", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-04-29T00:00:00.000Z"));
+        const { adapter } = adapterFor(
+          v1Record({ policyVersion: "v1", decidedAt: "2026-04-01T00:00:00.000Z" }),
+        );
+        const store = createConsentStore(
+          makeConfig({
+            adapter,
+            policyVersion: "v1",
+            triggers: { expiresAfter: "1 day" },
+          }),
+        );
+        expect(store.getState().repromptReason).toBe("expired");
+      });
+
+      it("does not invalidate when within the duration", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-04-01T01:00:00.000Z"));
+        const { adapter } = adapterFor(
+          v1Record({ policyVersion: "v1", decidedAt: "2026-04-01T00:00:00.000Z" }),
+        );
+        const store = createConsentStore(
+          makeConfig({
+            adapter,
+            policyVersion: "v1",
+            triggers: { expiresAfter: "13 months" },
+          }),
+        );
+        expect(store.getState().repromptReason).toBeNull();
+      });
+    });
+
+    describe("jurisdictionChanged", () => {
+      it("invalidates when the visitor crosses a jurisdiction boundary (sync resolver)", () => {
+        const { adapter } = adapterFor(v1Record({ jurisdiction: "EEA", policyVersion: "v1" }));
+        const store = createConsentStore(
+          makeConfig({
+            adapter,
+            policyVersion: "v1",
+            jurisdictionResolver: manualResolver("US"),
+            triggers: { jurisdictionChanged: true },
+          }),
+        );
+        expect(store.getState().repromptReason).toBe("jurisdiction");
+        expect(store.getState().jurisdiction).toBe("US");
+      });
+
+      it("invalidates after async jurisdiction resolution", async () => {
+        const { adapter } = adapterFor(v1Record({ jurisdiction: "EEA", policyVersion: "v1" }));
+        const resolver: JurisdictionResolver = {
+          resolve: () => Promise.resolve("US"),
+        };
+        const store = createConsentStore(
+          makeConfig({
+            adapter,
+            policyVersion: "v1",
+            jurisdictionResolver: resolver,
+            triggers: { jurisdictionChanged: true },
+          }),
+        );
+        expect(store.getState().repromptReason).toBeNull();
+        await flushMicrotasks();
+        expect(store.getState().repromptReason).toBe("jurisdiction");
+        expect(store.getPreviousRecord()?.jurisdiction).toBe("EEA");
+      });
+    });
+
+    describe("event dispatch", () => {
+      it("emits oncookies:reprompt on globalThis when a trigger fires", async () => {
+        const { events, off } = listenForReprompt();
+        try {
+          const { adapter } = adapterFor(v1Record({ policyVersion: "v1" }));
+          createConsentStore(
+            makeConfig({
+              adapter,
+              policyVersion: "v2",
+              triggers: { policyVersionChanged: true },
+            }),
+          );
+          await flushMicrotasks();
+          expect(events).toHaveLength(1);
+          expect(events[0]).toEqual({ reason: "policyVersion" });
+        } finally {
+          off();
+        }
+      });
+
+      it("does not emit when no trigger fires", async () => {
+        const { events, off } = listenForReprompt();
+        try {
+          const { adapter } = adapterFor(v1Record({ policyVersion: "v1" }));
+          createConsentStore(
+            makeConfig({
+              adapter,
+              policyVersion: "v1",
+              triggers: { policyVersionChanged: true },
+            }),
+          );
+          await flushMicrotasks();
+          expect(events).toHaveLength(0);
+        } finally {
+          off();
+        }
+      });
+    });
+
+    describe("clearing reprompt state on user decision", () => {
+      it("clears repromptReason and previousRecord after acceptAll", () => {
+        const { adapter, writes } = adapterFor(v1Record({ policyVersion: "v1" }));
+        const store = createConsentStore(
+          makeConfig({
+            adapter,
+            policyVersion: "v2",
+            triggers: { policyVersionChanged: true },
+          }),
+        );
+        expect(store.getState().repromptReason).toBe("policyVersion");
+        store.acceptAll();
+        expect(store.getState().repromptReason).toBeNull();
+        expect(store.getPreviousRecord()).toBeNull();
+        expect(writes).toHaveLength(1);
+        expect(writes[0]?.policyVersion).toBe("v2");
+      });
+
+      it("clears repromptReason after acceptNecessary, reject, and save", () => {
+        const stored = v1Record({ policyVersion: "v1" });
+        for (const action of ["acceptNecessary", "reject", "save"] as const) {
+          const { adapter } = adapterFor(stored);
+          const store = createConsentStore(
+            makeConfig({
+              adapter,
+              policyVersion: "v2",
+              triggers: { policyVersionChanged: true },
+            }),
+          );
+          expect(store.getState().repromptReason).toBe("policyVersion");
+          store[action]();
+          expect(store.getState().repromptReason).toBeNull();
+          expect(store.getPreviousRecord()).toBeNull();
+        }
+      });
+    });
+
+    it("getPreviousRecord is null when no trigger fired", () => {
+      const { adapter } = adapterFor(v1Record({ policyVersion: "v1" }));
+      const store = createConsentStore(
+        makeConfig({
+          adapter,
+          policyVersion: "v1",
+          triggers: { policyVersionChanged: true },
+        }),
+      );
+      expect(store.getPreviousRecord()).toBeNull();
+    });
+
+    it("does not write to adapter while in repromptReason state", () => {
+      const { adapter, writes } = adapterFor(v1Record({ policyVersion: "v1" }));
+      createConsentStore(
+        makeConfig({
+          adapter,
+          policyVersion: "v2",
+          triggers: { policyVersionChanged: true },
+        }),
+      );
+      expect(writes).toEqual([]);
+    });
+  });
 });

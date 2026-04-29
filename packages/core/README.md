@@ -146,6 +146,52 @@ Records produced by older versions of OpenCookies are tolerated on read: missing
 
 GPC alone does not produce a record — the visitor has not made a decision. `getConsentRecord()` keeps returning `null` until the user accepts, rejects, saves, or toggles a category.
 
+## Re-consent triggers
+
+A stored `ConsentRecord` can become stale: the cookie policy is updated, a new category appears, the visitor moves to a different jurisdiction, or the record simply ages out. Pass a `triggers` config to declare when the store should re-prompt instead of restoring stored decisions.
+
+```ts
+const store = createConsentStore({
+  categories,
+  policyVersion: "v2",
+  adapter: cookieAdapter(),
+  triggers: {
+    policyVersionChanged: true, // config.policyVersion !== record.policyVersion
+    categoriesAdded: true, // a category in config is missing from the record
+    expiresAfter: "13 months", // older than the duration → re-prompt
+    jurisdictionChanged: true, // current jurisdiction differs from the recorded one
+  },
+});
+```
+
+`expiresAfter` accepts:
+
+- a number of milliseconds (`60_000`);
+- a human-friendly string (`"13 months"`, `"30 days"`, `"1 year"`, `"24h"`, `"90s"`);
+- an ISO 8601 duration (`"P13M"`, `"P1Y"`, `"PT24H"`);
+- `null` or omitted to never expire.
+
+When any trigger fires, the store invalidates state — `route` returns to `"cookie"`, `decidedAt` is cleared, decisions reset to defaults — and exposes the original record on `state.repromptReason` and `store.getPreviousRecord()`:
+
+```ts
+const { repromptReason, getPreviousRecord } = useConsent();
+
+if (repromptReason !== null) {
+  console.log(`Re-prompting because: ${repromptReason}`);
+  console.log("Previous decisions:", getPreviousRecord()?.decisions);
+}
+```
+
+`repromptReason` is one of `"policyVersion" | "categoriesAdded" | "expired" | "jurisdiction"`, in priority order — the first trigger to fire wins. Once the visitor makes a new decision (`acceptAll`, `acceptNecessary`, `reject`, or `save`), `repromptReason` clears, `getPreviousRecord()` returns `null`, and a fresh record is written via the adapter.
+
+For analytics, the store emits an `oncookies:reprompt` event on `globalThis` whenever a trigger fires, with `event.detail.reason` containing the trigger name:
+
+```ts
+globalThis.addEventListener("oncookies:reprompt", (event) => {
+  analytics.track("consent_reprompt", { reason: event.detail.reason });
+});
+```
+
 ## Script gating
 
 Third-party tag scripts (GA4, Meta Pixel, PostHog, …) need to be loaded _only_ after the visitor consents to the matching category — but typical site code calls `window.gtag(…)` from the moment the page boots. `gateScript` solves that gap: it injects the `<script>` tag once consent is granted, intercepts pre-consent calls to listed window globals, and replays them after the script and `init` have run.

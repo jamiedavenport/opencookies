@@ -13,6 +13,7 @@ const baseState: ConsentState = {
   policyVersion: "v2",
   decidedAt: "2026-04-29T00:00:00.000Z",
   source: "user",
+  repromptReason: null,
 };
 
 const v1: ConsentRecord = {

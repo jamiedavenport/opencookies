@@ -44,7 +44,19 @@ export type ConsentState = {
   policyVersion: string;
   decidedAt: string | null;
   source: ConsentSource;
+  repromptReason: RepromptReason | null;
 };
+
+export type RepromptReason = "policyVersion" | "categoriesAdded" | "expired" | "jurisdiction";
+
+export type RepromptTriggers = {
+  policyVersionChanged?: boolean;
+  categoriesAdded?: boolean;
+  expiresAfter?: number | string | null;
+  jurisdictionChanged?: boolean;
+};
+
+export type RepromptEventDetail = { reason: RepromptReason };
 
 export type ConsentRecordSource = "banner" | "preferences" | "api" | "import";
 
@@ -75,6 +87,7 @@ export type OpenCookiesConfig = {
   request?: ResolverContext;
   gpc?: GPCConfig;
   adapter?: StorageAdapter;
+  triggers?: RepromptTriggers;
 };
 
 export type ActionOptions = {
@@ -84,6 +97,7 @@ export type ActionOptions = {
 export type ConsentStore = {
   getState(): ConsentState;
   getConsentRecord(): ConsentRecord | null;
+  getPreviousRecord(): ConsentRecord | null;
   subscribe(listener: (state: ConsentState) => void): () => void;
   acceptAll(opts?: ActionOptions): void;
   acceptNecessary(opts?: ActionOptions): void;

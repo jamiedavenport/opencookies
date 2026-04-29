@@ -22,6 +22,7 @@ import {
   type ConsentStore,
   type Jurisdiction,
   type OpenCookiesConfig,
+  type RepromptReason,
   type Route,
 } from "@opencookies/core";
 
@@ -92,6 +93,7 @@ export type UseConsentResult = {
   jurisdiction: ComputedRef<Jurisdiction | null>;
   policyVersion: ComputedRef<string>;
   decidedAt: ComputedRef<string | null>;
+  repromptReason: ComputedRef<RepromptReason | null>;
   acceptAll: ConsentStore["acceptAll"];
   acceptNecessary: ConsentStore["acceptNecessary"];
   reject: ConsentStore["reject"];
@@ -100,6 +102,7 @@ export type UseConsentResult = {
   setRoute: ConsentStore["setRoute"];
   has: ConsentStore["has"];
   getConsentRecord: ConsentStore["getConsentRecord"];
+  getPreviousRecord: ConsentStore["getPreviousRecord"];
 };
 
 export function useConsent(): UseConsentResult {
@@ -112,6 +115,7 @@ export function useConsent(): UseConsentResult {
     jurisdiction: computed(() => state.value.jurisdiction),
     policyVersion: computed(() => state.value.policyVersion),
     decidedAt: computed(() => state.value.decidedAt),
+    repromptReason: computed(() => state.value.repromptReason),
     acceptAll: (opts) => store.acceptAll(opts),
     acceptNecessary: (opts) => store.acceptNecessary(opts),
     reject: (opts) => store.reject(opts),
@@ -120,6 +124,7 @@ export function useConsent(): UseConsentResult {
     setRoute: (route) => store.setRoute(route),
     has: (expr) => store.has(expr),
     getConsentRecord: () => store.getConsentRecord(),
+    getPreviousRecord: () => store.getPreviousRecord(),
   };
 }
 
@@ -169,5 +174,6 @@ export type {
   ConsentStore,
   Jurisdiction,
   OpenCookiesConfig,
+  RepromptReason,
   Route,
 };
