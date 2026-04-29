@@ -2,7 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GPC_LEGALLY_REQUIRED_JURISDICTIONS } from "./gpc.ts";
 import { manualResolver } from "./jurisdiction.ts";
 import { createConsentStore } from "./store.ts";
-import type { Category, JurisdictionResolver, OpenCookiesConfig } from "./types.ts";
+import type {
+  Category,
+  ConsentRecord,
+  JurisdictionResolver,
+  OpenCookiesConfig,
+  StorageAdapter,
+} from "./types.ts";
 
 const baseCategories: Category[] = [
   { key: "essential", label: "Essential", locked: true },
@@ -534,6 +540,175 @@ describe("createConsentStore", () => {
       );
       expect(store.getState().source).toBe("default");
       expect(store.getState().route).toBe("cookie");
+    });
+  });
+
+  describe("storage adapter", () => {
+    function makeAdapter(initial: ConsentRecord | null = null): {
+      adapter: StorageAdapter;
+      writes: ConsentRecord[];
+      emit: (record: ConsentRecord | null) => void;
+    } {
+      const writes: ConsentRecord[] = [];
+      let listener: ((record: ConsentRecord | null) => void) | null = null;
+      return {
+        writes,
+        emit(record) {
+          listener?.(record);
+        },
+        adapter: {
+          read: () => initial,
+          write: (record) => {
+            writes.push(record);
+          },
+          clear: () => {},
+          subscribe: (cb) => {
+            listener = cb;
+            return () => {
+              listener = null;
+            };
+          },
+        },
+      };
+    }
+
+    it("hydrates state from a sync adapter on init", () => {
+      const { adapter } = makeAdapter({
+        decisions: { essential: true, analytics: true, marketing: false },
+        jurisdiction: "EEA",
+        policyVersion: "v2",
+        decidedAt: "2026-04-01T00:00:00.000Z",
+        source: "user",
+      });
+      const store = createConsentStore(makeConfig({ adapter }));
+      const s = store.getState();
+      expect(s.decisions).toEqual({ essential: true, analytics: true, marketing: false });
+      expect(s.jurisdiction).toBe("EEA");
+      expect(s.decidedAt).toBe("2026-04-01T00:00:00.000Z");
+      expect(s.source).toBe("user");
+    });
+
+    it("hydrates state from an async adapter and notifies subscribers", async () => {
+      const adapter: StorageAdapter = {
+        read: () =>
+          Promise.resolve({
+            decisions: { essential: true, analytics: true, marketing: false },
+            jurisdiction: "UK",
+            policyVersion: "",
+            decidedAt: "2026-04-01T00:00:00.000Z",
+            source: "user",
+          }),
+        write: () => {},
+        clear: () => {},
+      };
+      const store = createConsentStore(makeConfig({ adapter }));
+      expect(store.getState().decidedAt).toBeNull();
+      const listener = vi.fn();
+      store.subscribe(listener);
+      await flushMicrotasks();
+      expect(store.getState().decisions.analytics).toBe(true);
+      expect(store.getState().jurisdiction).toBe("UK");
+      expect(listener).toHaveBeenCalled();
+    });
+
+    it("does not write back the just-hydrated record (no-op on init)", () => {
+      const { adapter, writes } = makeAdapter({
+        decisions: { essential: true, analytics: true, marketing: false },
+        jurisdiction: "EEA",
+        policyVersion: "v1",
+        decidedAt: "2026-04-01T00:00:00.000Z",
+        source: "user",
+      });
+      createConsentStore(makeConfig({ adapter, policyVersion: "v1" }));
+      expect(writes).toEqual([]);
+    });
+
+    it("persists each user decision via adapter.write", () => {
+      const { adapter, writes } = makeAdapter();
+      const store = createConsentStore(makeConfig({ adapter }));
+      store.acceptAll();
+      expect(writes).toHaveLength(1);
+      expect(writes[0]?.decisions).toEqual({
+        essential: true,
+        analytics: true,
+        marketing: true,
+      });
+      expect(writes[0]?.source).toBe("user");
+
+      store.toggle("marketing");
+      expect(writes).toHaveLength(2);
+      expect(writes[1]?.decisions.marketing).toBe(false);
+    });
+
+    it("does not write when the record is unchanged (e.g. setRoute)", () => {
+      const { adapter, writes } = makeAdapter();
+      const store = createConsentStore(makeConfig({ adapter }));
+      store.acceptAll();
+      const before = writes.length;
+      store.setRoute("preferences");
+      store.setRoute("closed");
+      expect(writes).toHaveLength(before);
+    });
+
+    it("merges external subscribe updates into state without re-writing", () => {
+      const { adapter, writes, emit } = makeAdapter();
+      const store = createConsentStore(makeConfig({ adapter }));
+      const listener = vi.fn();
+      store.subscribe(listener);
+
+      emit({
+        decisions: { essential: true, analytics: true, marketing: false },
+        jurisdiction: "EEA",
+        policyVersion: "",
+        decidedAt: "2026-04-02T00:00:00.000Z",
+        source: "user",
+      });
+
+      expect(store.getState().decisions.analytics).toBe(true);
+      expect(store.getState().decidedAt).toBe("2026-04-02T00:00:00.000Z");
+      expect(listener).toHaveBeenCalledWith(store.getState());
+      expect(writes).toEqual([]);
+    });
+
+    it("warns but does not throw when adapter.read fails", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const adapter: StorageAdapter = {
+        read: () => {
+          throw new Error("boom");
+        },
+        write: () => {},
+        clear: () => {},
+      };
+      const store = createConsentStore(makeConfig({ adapter }));
+      expect(store.getState().decidedAt).toBeNull();
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it("warns but does not throw when adapter.write fails", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const adapter: StorageAdapter = {
+        read: () => null,
+        write: () => {
+          throw new Error("boom");
+        },
+        clear: () => {},
+      };
+      const store = createConsentStore(makeConfig({ adapter }));
+      store.acceptAll();
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it("locked categories stay true even if record persisted them as false", () => {
+      const { adapter } = makeAdapter({
+        decisions: { essential: false, analytics: true, marketing: false },
+        jurisdiction: null,
+        policyVersion: "",
+        decidedAt: "2026-04-01T00:00:00.000Z",
+        source: "user",
+      });
+      const store = createConsentStore(makeConfig({ adapter }));
+      expect(store.getState().decisions.essential).toBe(true);
+      expect(store.getState().decisions.analytics).toBe(true);
     });
   });
 });

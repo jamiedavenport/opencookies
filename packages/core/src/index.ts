@@ -13,6 +13,7 @@ export { createConsentStore } from "./store.ts";
 export type {
   Category,
   ConsentExpr,
+  ConsentRecord,
   ConsentSource,
   ConsentState,
   ConsentStore,
@@ -26,5 +27,6 @@ export type {
   Route,
   ScriptDefinition,
   ScriptEvent,
+  StorageAdapter,
   UnknownCategoryBehavior,
 } from "./types.ts";

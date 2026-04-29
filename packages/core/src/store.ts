@@ -1,7 +1,9 @@
 import { evaluate } from "./expr.ts";
 import { applyGPC } from "./gpc.ts";
+import { recordEquals, toRecord } from "./storage/record.ts";
 import type {
   ConsentExpr,
+  ConsentRecord,
   ConsentState,
   ConsentStore,
   Jurisdiction,
@@ -16,19 +18,36 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
   const listeners = new Set<Listener>();
 
   const initialJurisdiction = resolveSync(config, config.request);
+  const initialRecord = readSync(config);
 
   let state: ConsentState = applyGPC(
-    {
-      route: config.initialRoute ?? "cookie",
-      categories: config.categories,
-      decisions: Object.fromEntries(config.categories.map((c) => [c.key, c.locked === true])),
-      jurisdiction: initialJurisdiction.value,
-      policyVersion: config.policyVersion ?? "",
-      decidedAt: null,
-      source: "default",
-    },
+    mergeRecord(
+      {
+        route: config.initialRoute ?? "cookie",
+        categories: config.categories,
+        decisions: Object.fromEntries(config.categories.map((c) => [c.key, c.locked === true])),
+        jurisdiction: initialJurisdiction.value,
+        policyVersion: config.policyVersion ?? "",
+        decidedAt: null,
+        source: "default",
+      },
+      initialRecord.value,
+    ),
     config,
   );
+
+  let lastWritten: ConsentRecord | null = initialRecord.value;
+  let suspendWrite = false;
+
+  if (initialRecord.pending) {
+    void initialRecord.pending.then((value) => {
+      if (value === null) return;
+      suspendWrite = true;
+      commit(applyGPC(mergeRecord(state, value), config));
+      suspendWrite = false;
+      lastWritten = value;
+    });
+  }
 
   if (initialJurisdiction.pending) {
     void initialJurisdiction.pending.then((value) => {
@@ -36,9 +55,37 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
     });
   }
 
+  if (config.adapter?.subscribe) {
+    config.adapter.subscribe((record) => {
+      if (record === null) return;
+      suspendWrite = true;
+      commit(applyGPC(mergeRecord(state, record), config));
+      suspendWrite = false;
+      lastWritten = record;
+    });
+  }
+
   function commit(next: ConsentState): void {
     state = next;
     for (const listener of listeners) listener(state);
+    persist();
+  }
+
+  function persist(): void {
+    if (!config.adapter || suspendWrite) return;
+    const record = toRecord(state);
+    if (lastWritten && recordEquals(lastWritten, record)) return;
+    lastWritten = record;
+    try {
+      const result = config.adapter.write(record);
+      if (isPromise(result)) {
+        result.catch((err) => {
+          console.warn("[opencookies] adapter.write failed:", err);
+        });
+      }
+    } catch (err) {
+      console.warn("[opencookies] adapter.write failed:", err);
+    }
   }
 
   function decisionsAll(value: boolean): Record<string, boolean> {
@@ -183,4 +230,50 @@ function isPromise<T>(value: unknown): value is Promise<T> {
 
 function warnResolverError(err: unknown): void {
   console.warn("[opencookies] jurisdiction resolver failed:", err);
+}
+
+type InitialRecord = {
+  value: ConsentRecord | null;
+  pending: Promise<ConsentRecord | null> | null;
+};
+
+function readSync(config: OpenCookiesConfig): InitialRecord {
+  if (!config.adapter) return { value: null, pending: null };
+  let result: Promise<ConsentRecord | null> | ConsentRecord | null;
+  try {
+    result = config.adapter.read();
+  } catch (err) {
+    console.warn("[opencookies] adapter.read failed:", err);
+    return { value: null, pending: null };
+  }
+  if (isPromise(result)) {
+    const pending = result.catch((err) => {
+      console.warn("[opencookies] adapter.read failed:", err);
+      return null;
+    });
+    return { value: null, pending };
+  }
+  return { value: result, pending: null };
+}
+
+function mergeRecord(state: ConsentState, record: ConsentRecord | null): ConsentState {
+  if (!record) return state;
+  const decisions: Record<string, boolean> = { ...state.decisions };
+  for (const c of state.categories) {
+    if (c.locked === true) {
+      decisions[c.key] = true;
+      continue;
+    }
+    if (Object.hasOwn(record.decisions, c.key)) {
+      decisions[c.key] = record.decisions[c.key] === true;
+    }
+  }
+  return {
+    ...state,
+    decisions,
+    jurisdiction: record.jurisdiction ?? state.jurisdiction,
+    policyVersion: record.policyVersion || state.policyVersion,
+    decidedAt: record.decidedAt,
+    source: record.source,
+  };
 }

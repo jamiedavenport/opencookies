@@ -9,6 +9,9 @@
   "type": "module",
   "exports": {
     ".": "./dist/index.mjs",
+    "./storage/cookie": "./dist/storage/cookie.mjs",
+    "./storage/local-storage": "./dist/storage/local-storage.mjs",
+    "./storage/server": "./dist/storage/server.mjs",
     "./package.json": "./package.json"
   },
   "publishConfig": {

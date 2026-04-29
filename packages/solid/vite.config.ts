@@ -12,6 +12,7 @@ export default defineConfig({
     },
   },
   test: {
+    environment: "happy-dom",
     server: {
       deps: {
         inline: [/solid-js/, /@solidjs\//, /@testing-library\//],

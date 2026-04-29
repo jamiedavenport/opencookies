@@ -46,6 +46,21 @@ export type ConsentState = {
   source: ConsentSource;
 };
 
+export type ConsentRecord = {
+  decisions: Record<string, boolean>;
+  jurisdiction: Jurisdiction | null;
+  policyVersion: string;
+  decidedAt: string | null;
+  source: ConsentSource;
+};
+
+export type StorageAdapter = {
+  read(): Promise<ConsentRecord | null> | ConsentRecord | null;
+  write(record: ConsentRecord): Promise<void> | void;
+  clear(): Promise<void> | void;
+  subscribe?(listener: (record: ConsentRecord | null) => void): () => void;
+};
+
 export type OpenCookiesConfig = {
   categories: Category[];
   policyVersion?: string;
@@ -54,6 +69,7 @@ export type OpenCookiesConfig = {
   jurisdictionResolver?: JurisdictionResolver;
   request?: ResolverContext;
   gpc?: GPCConfig;
+  adapter?: StorageAdapter;
 };
 
 export type ConsentStore = {
