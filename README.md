@@ -1,3 +1,5 @@
+![OpenCookies](./banner.png)
+
 # OpenCookies
 
 ## Overview
