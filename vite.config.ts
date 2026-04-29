@@ -9,4 +9,7 @@ export default defineConfig({
   run: {
     cache: true,
   },
+  test: {
+    projects: ["packages/*", "apps/*", "examples/*"],
+  },
 });
