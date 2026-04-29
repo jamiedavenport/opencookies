@@ -1,5 +1,13 @@
 # @opencookies/example-react
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [[`7578ca4`](https://github.com/jamiedavenport/opencookies/commit/7578ca4574a63f25f0c98d383ec9afeac035837d)]:
+  - @opencookies/core@0.0.2
+  - @opencookies/react@0.0.2
+
 ## 0.0.1
 
 ### Patch Changes
