@@ -1,11 +1,10 @@
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
-  pack: {
-    dts: {
-      tsgo: true,
-    },
-    exports: true,
+  plugins: [svelte({ hot: !process.env.VITEST })],
+  resolve: {
+    conditions: ["browser"],
   },
   lint: {
     options: {

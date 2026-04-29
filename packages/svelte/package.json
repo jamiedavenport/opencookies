@@ -4,29 +4,41 @@
   "private": true,
   "license": "Apache-2.0",
   "files": [
-    "dist"
+    "src"
   ],
   "type": "module",
+  "svelte": "./src/index.ts",
   "exports": {
-    ".": "./dist/index.mjs",
+    ".": {
+      "svelte": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./stores": {
+      "svelte": "./src/stores.ts",
+      "types": "./src/stores.ts",
+      "default": "./src/stores.ts"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "vp pack",
-    "dev": "vp pack --watch",
+    "build": "vp run check",
     "test": "vp test",
-    "check": "vp check",
-    "prepublishOnly": "vp run build"
+    "check": "vp check"
   },
   "devDependencies": {
     "@opencookies/core": "workspace:*",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@testing-library/svelte": "^5.2.0",
     "@types/node": "^25.5.0",
+    "happy-dom": "^15.0.0",
     "svelte": "^5.0.0",
     "typescript": "^6.0.2",
-    "vite-plus": "latest"
+    "vite-plus": "latest",
+    "vitest": "latest"
   },
   "peerDependencies": {
     "@opencookies/core": "workspace:*",

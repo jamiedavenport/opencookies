@@ -1,0 +1,43 @@
+<script lang="ts">
+  import type { ConsentExpr, ConsentStore, OpenCookiesConfig } from "@opencookies/core";
+  import ConsentGate from "../ConsentGate.svelte";
+  import { getCategory, getConsent, setOpenCookiesContext } from "../context.svelte.ts";
+
+  type Props = {
+    config?: OpenCookiesConfig;
+    store?: ConsentStore;
+    requires?: ConsentExpr;
+    withFallback?: boolean;
+  };
+
+  let { config, store, requires, withFallback = true }: Props = $props();
+
+  if (store) setOpenCookiesContext({ store });
+  else if (config) setOpenCookiesContext({ config });
+
+  const consent = getConsent();
+  const analytics = getCategory("analytics");
+</script>
+
+<span data-testid="route">{consent.route}</span>
+<span data-testid="analytics-granted">{analytics.granted}</span>
+<span data-testid="decided-at">{consent.decidedAt ?? "null"}</span>
+
+{#if requires !== undefined}
+  {#if withFallback}
+    <ConsentGate {requires}>
+      {#snippet children()}
+        <span data-testid="child">visible</span>
+      {/snippet}
+      {#snippet fallback()}
+        <span data-testid="fb">nope</span>
+      {/snippet}
+    </ConsentGate>
+  {:else}
+    <ConsentGate {requires}>
+      {#snippet children()}
+        <span data-testid="child">visible</span>
+      {/snippet}
+    </ConsentGate>
+  {/if}
+{/if}
