@@ -7,8 +7,12 @@ export type Category = {
   description?: string;
 };
 
-export type Jurisdiction = {
-  region: string;
+export type Jurisdiction = "EEA" | "UK" | "CH" | "US" | `US-${string}` | "BR" | "CA" | "AU" | "ROW";
+
+export type ResolverContext = Request | { headers: Headers };
+
+export type JurisdictionResolver = {
+  resolve(req?: ResolverContext): Promise<Jurisdiction | null> | Jurisdiction | null;
 };
 
 export type ConsentExpr =
@@ -37,6 +41,8 @@ export type OpenCookiesConfig = {
   policyVersion?: string;
   initialRoute?: Route;
   onUnknownCategory?: UnknownCategoryBehavior;
+  jurisdictionResolver?: JurisdictionResolver;
+  request?: ResolverContext;
 };
 
 export type ConsentStore = {
@@ -49,4 +55,5 @@ export type ConsentStore = {
   save(): void;
   setRoute(route: Route): void;
   has(expr: ConsentExpr): boolean;
+  refreshJurisdiction(req?: ResolverContext): Promise<Jurisdiction | null>;
 };

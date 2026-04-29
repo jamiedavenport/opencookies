@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { manualResolver } from "./jurisdiction.ts";
 import { createConsentStore } from "./store.ts";
-import type { Category, OpenCookiesConfig } from "./types.ts";
+import type { Category, JurisdictionResolver, OpenCookiesConfig } from "./types.ts";
 
 const baseCategories: Category[] = [
   { key: "essential", label: "Essential", locked: true },
@@ -10,6 +11,10 @@ const baseCategories: Category[] = [
 
 function makeConfig(overrides: Partial<OpenCookiesConfig> = {}): OpenCookiesConfig {
   return { categories: baseCategories, ...overrides };
+}
+
+function flushMicrotasks(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("createConsentStore", () => {
@@ -41,8 +46,155 @@ describe("createConsentStore", () => {
       expect(createConsentStore(makeConfig()).getState().policyVersion).toBe("");
     });
 
-    it("jurisdiction is null", () => {
+    it("jurisdiction is null when no resolver is configured", () => {
       expect(createConsentStore(makeConfig()).getState().jurisdiction).toBeNull();
+    });
+  });
+
+  describe("jurisdiction resolver", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("populates jurisdiction synchronously when resolver is sync", () => {
+      const store = createConsentStore(makeConfig({ jurisdictionResolver: manualResolver("EEA") }));
+      expect(store.getState().jurisdiction).toBe("EEA");
+    });
+
+    it("starts null and notifies subscribers when resolver is async", async () => {
+      const resolver: JurisdictionResolver = {
+        resolve: () => Promise.resolve("UK"),
+      };
+      const store = createConsentStore(makeConfig({ jurisdictionResolver: resolver }));
+      expect(store.getState().jurisdiction).toBeNull();
+      const listener = vi.fn();
+      store.subscribe(listener);
+      await flushMicrotasks();
+      expect(store.getState().jurisdiction).toBe("UK");
+      expect(listener).toHaveBeenCalledWith(store.getState());
+    });
+
+    it("forwards config.request to the resolver", () => {
+      const resolve = vi.fn().mockReturnValue("US");
+      const req = { headers: new Headers({ "cf-ipcountry": "US" }) };
+      createConsentStore(makeConfig({ jurisdictionResolver: { resolve }, request: req }));
+      expect(resolve).toHaveBeenCalledWith(req);
+    });
+
+    it("swallows sync resolver errors and leaves jurisdiction null", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const resolver: JurisdictionResolver = {
+        resolve: () => {
+          throw new Error("boom");
+        },
+      };
+      const store = createConsentStore(makeConfig({ jurisdictionResolver: resolver }));
+      expect(store.getState().jurisdiction).toBeNull();
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it("swallows async resolver rejections and leaves jurisdiction null", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const resolver: JurisdictionResolver = {
+        resolve: () => Promise.reject(new Error("boom")),
+      };
+      const store = createConsentStore(makeConfig({ jurisdictionResolver: resolver }));
+      await flushMicrotasks();
+      expect(store.getState().jurisdiction).toBeNull();
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it("preserves jurisdiction across decision mutations", () => {
+      const store = createConsentStore(makeConfig({ jurisdictionResolver: manualResolver("EEA") }));
+      store.acceptAll();
+      expect(store.getState().jurisdiction).toBe("EEA");
+      store.acceptNecessary();
+      expect(store.getState().jurisdiction).toBe("EEA");
+      store.reject();
+      expect(store.getState().jurisdiction).toBe("EEA");
+      store.toggle("analytics");
+      expect(store.getState().jurisdiction).toBe("EEA");
+      store.save();
+      expect(store.getState().jurisdiction).toBe("EEA");
+    });
+  });
+
+  describe("refreshJurisdiction", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("re-invokes the resolver and commits the new value", async () => {
+      let next: "EEA" | "US" = "EEA";
+      const resolver: JurisdictionResolver = {
+        resolve: () => next,
+      };
+      const store = createConsentStore(makeConfig({ jurisdictionResolver: resolver }));
+      expect(store.getState().jurisdiction).toBe("EEA");
+      next = "US";
+      const result = await store.refreshJurisdiction();
+      expect(result).toBe("US");
+      expect(store.getState().jurisdiction).toBe("US");
+    });
+
+    it("notifies subscribers on refresh", async () => {
+      let next: "EEA" | "UK" = "EEA";
+      const store = createConsentStore(
+        makeConfig({ jurisdictionResolver: { resolve: () => next } }),
+      );
+      const listener = vi.fn();
+      store.subscribe(listener);
+      next = "UK";
+      await store.refreshJurisdiction();
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(listener.mock.calls[0]?.[0].jurisdiction).toBe("UK");
+    });
+
+    it("returns the current jurisdiction when no resolver is configured", async () => {
+      const store = createConsentStore(makeConfig());
+      const result = await store.refreshJurisdiction();
+      expect(result).toBeNull();
+    });
+
+    it("forwards an explicit request override to the resolver", async () => {
+      const resolve = vi.fn().mockReturnValue("EEA");
+      const store = createConsentStore(makeConfig({ jurisdictionResolver: { resolve } }));
+      resolve.mockClear();
+      const req = { headers: new Headers({ "cf-ipcountry": "DE" }) };
+      await store.refreshJurisdiction(req);
+      expect(resolve).toHaveBeenCalledWith(req);
+    });
+
+    it("leaves jurisdiction unchanged when the resolver throws", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      let mode: "ok" | "boom" = "ok";
+      const resolver: JurisdictionResolver = {
+        resolve: () => {
+          if (mode === "boom") throw new Error("nope");
+          return "EEA";
+        },
+      };
+      const store = createConsentStore(makeConfig({ jurisdictionResolver: resolver }));
+      mode = "boom";
+      const result = await store.refreshJurisdiction();
+      expect(result).toBe("EEA");
+      expect(store.getState().jurisdiction).toBe("EEA");
+    });
+
+    it("leaves jurisdiction unchanged when the resolver rejects", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      let mode: "ok" | "boom" = "ok";
+      const resolver: JurisdictionResolver = {
+        resolve: () =>
+          mode === "boom" ? Promise.reject(new Error("nope")) : Promise.resolve("UK"),
+      };
+      const store = createConsentStore(makeConfig({ jurisdictionResolver: resolver }));
+      await flushMicrotasks();
+      expect(store.getState().jurisdiction).toBe("UK");
+      mode = "boom";
+      const result = await store.refreshJurisdiction();
+      expect(result).toBe("UK");
+      expect(store.getState().jurisdiction).toBe("UK");
     });
   });
 
