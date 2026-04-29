@@ -28,8 +28,8 @@ jobs:
       - run: vp run -r build
       - uses: changesets/action@v1
         with:
-          version: bun changeset:version
-          publish: bun changeset:publish
+          version: vp run changeset:version
+          publish: vp run changeset:publish
           title: "chore: release packages"
           commit: "chore: release packages"
         env:
