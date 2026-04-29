@@ -51,6 +51,50 @@ export function ipApiResolver(): JurisdictionResolver {
 }
 ```
 
+## Global Privacy Control
+
+[Global Privacy Control](https://globalprivacycontrol.org/) (GPC) is a browser signal asserting "do not sell or share". It is legally enforceable under California's CPRA and the consumer-privacy laws of Colorado, Connecticut, Virginia, and others.
+
+When GPC is asserted, the store treats opt-out categories as denied without prompting, sets `source: "gpc"` on the consent record, and closes the banner if there is nothing left to ask.
+
+The privacy-positive default applies GPC in every jurisdiction with no extra config:
+
+```ts
+import { createConsentStore } from "@opencookies/core";
+
+const store = createConsentStore({ categories });
+// Brave (and any browser asserting GPC) sees the banner skipped automatically.
+```
+
+To scope GPC to the legally-required US states only:
+
+```ts
+import { GPC_LEGALLY_REQUIRED_JURISDICTIONS, createConsentStore } from "@opencookies/core";
+
+const store = createConsentStore({
+  categories,
+  gpc: { applicableJurisdictions: GPC_LEGALLY_REQUIRED_JURISDICTIONS },
+});
+```
+
+A category that should ignore GPC sets `respectGPC: false`:
+
+```ts
+const categories = [
+  { key: "essential", label: "Essential", locked: true },
+  { key: "analytics", label: "Analytics", respectGPC: false },
+  { key: "marketing", label: "Marketing" },
+];
+```
+
+To disable GPC handling entirely (e.g. you want to display GPC status yourself):
+
+```ts
+createConsentStore({ categories, gpc: { enabled: false } });
+```
+
+`state.source` is `"default"` before any decision, `"gpc"` after GPC applies, and `"user"` once the visitor takes any action. Persist this alongside the decisions to keep "the browser said no" distinct from "the user said no" later.
+
 ## License
 
 Apache-2.0

@@ -1,4 +1,5 @@
 import { evaluate } from "./expr.ts";
+import { applyGPC } from "./gpc.ts";
 import type {
   ConsentExpr,
   ConsentState,
@@ -16,18 +17,22 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
 
   const initialJurisdiction = resolveSync(config, config.request);
 
-  let state: ConsentState = {
-    route: config.initialRoute ?? "cookie",
-    categories: config.categories,
-    decisions: Object.fromEntries(config.categories.map((c) => [c.key, c.locked === true])),
-    jurisdiction: initialJurisdiction.value,
-    policyVersion: config.policyVersion ?? "",
-    decidedAt: null,
-  };
+  let state: ConsentState = applyGPC(
+    {
+      route: config.initialRoute ?? "cookie",
+      categories: config.categories,
+      decisions: Object.fromEntries(config.categories.map((c) => [c.key, c.locked === true])),
+      jurisdiction: initialJurisdiction.value,
+      policyVersion: config.policyVersion ?? "",
+      decidedAt: null,
+      source: "default",
+    },
+    config,
+  );
 
   if (initialJurisdiction.pending) {
     void initialJurisdiction.pending.then((value) => {
-      commit({ ...state, jurisdiction: value });
+      commit(applyGPC({ ...state, jurisdiction: value }, config));
     });
   }
 
@@ -60,6 +65,7 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         decisions: decisionsAll(true),
         decidedAt: new Date().toISOString(),
         route: "closed",
+        source: "user",
       });
     },
     acceptNecessary() {
@@ -68,6 +74,7 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         decisions: decisionsNecessary(),
         decidedAt: new Date().toISOString(),
         route: "closed",
+        source: "user",
       });
     },
     reject() {
@@ -76,6 +83,7 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         decisions: decisionsNecessary(),
         decidedAt: new Date().toISOString(),
         route: "closed",
+        source: "user",
       });
     },
     toggle(category: string) {
@@ -87,6 +95,7 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
           ...state.decisions,
           [category]: !state.decisions[category],
         },
+        source: "user",
       });
     },
     save() {
@@ -94,6 +103,7 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         ...state,
         decidedAt: new Date().toISOString(),
         route: "closed",
+        source: "user",
       });
     },
     setRoute(route: Route) {
@@ -116,7 +126,7 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         return state.jurisdiction;
       }
       const next = await safeResolve(raw);
-      if (next.ok) commit({ ...state, jurisdiction: next.value });
+      if (next.ok) commit(applyGPC({ ...state, jurisdiction: next.value }, config));
       return state.jurisdiction;
     },
   };

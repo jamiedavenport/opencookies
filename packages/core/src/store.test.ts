@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { GPC_LEGALLY_REQUIRED_JURISDICTIONS } from "./gpc.ts";
 import { manualResolver } from "./jurisdiction.ts";
 import { createConsentStore } from "./store.ts";
 import type { Category, JurisdictionResolver, OpenCookiesConfig } from "./types.ts";
@@ -369,6 +370,170 @@ describe("createConsentStore", () => {
       const before = store.getState();
       store.toggle("analytics");
       expect(store.getState()).not.toBe(before);
+    });
+  });
+
+  describe("source", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("starts as 'default' with no GPC and no decisions", () => {
+      expect(createConsentStore(makeConfig()).getState().source).toBe("default");
+    });
+
+    it("flips to 'user' on acceptAll", () => {
+      const store = createConsentStore(makeConfig());
+      store.acceptAll();
+      expect(store.getState().source).toBe("user");
+    });
+
+    it("flips to 'user' on acceptNecessary, reject, toggle, save", () => {
+      for (const action of ["acceptNecessary", "reject", "toggle", "save"] as const) {
+        const store = createConsentStore(makeConfig());
+        if (action === "toggle") store.toggle("analytics");
+        else store[action]();
+        expect(store.getState().source).toBe("user");
+      }
+    });
+
+    it("does not change on setRoute", () => {
+      const store = createConsentStore(makeConfig());
+      store.setRoute("preferences");
+      expect(store.getState().source).toBe("default");
+    });
+  });
+
+  describe("GPC", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("applies on init when signal is true (privacy-positive default scope)", () => {
+      const store = createConsentStore(
+        makeConfig({
+          jurisdictionResolver: manualResolver("EEA"),
+          gpc: { signal: true },
+        }),
+      );
+      const s = store.getState();
+      expect(s.source).toBe("gpc");
+      expect(s.route).toBe("closed");
+      expect(s.decidedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it("does not apply when signal is false", () => {
+      const store = createConsentStore(
+        makeConfig({
+          jurisdictionResolver: manualResolver("US-CA"),
+          gpc: { signal: false },
+        }),
+      );
+      expect(store.getState().source).toBe("default");
+      expect(store.getState().route).toBe("cookie");
+    });
+
+    it("applies in a legally-required US state", () => {
+      const store = createConsentStore(
+        makeConfig({
+          jurisdictionResolver: manualResolver("US-CA"),
+          gpc: {
+            signal: true,
+            applicableJurisdictions: GPC_LEGALLY_REQUIRED_JURISDICTIONS,
+          },
+        }),
+      );
+      expect(store.getState().source).toBe("gpc");
+    });
+
+    it("does not apply in EEA when scope is restricted to the four US states", () => {
+      const store = createConsentStore(
+        makeConfig({
+          jurisdictionResolver: manualResolver("EEA"),
+          gpc: {
+            signal: true,
+            applicableJurisdictions: GPC_LEGALLY_REQUIRED_JURISDICTIONS,
+          },
+        }),
+      );
+      expect(store.getState().source).toBe("default");
+      expect(store.getState().route).toBe("cookie");
+    });
+
+    it("re-evaluates after async jurisdiction resolves", async () => {
+      const resolver: JurisdictionResolver = {
+        resolve: () => Promise.resolve("US-CA"),
+      };
+      const store = createConsentStore(
+        makeConfig({
+          jurisdictionResolver: resolver,
+          gpc: {
+            signal: true,
+            applicableJurisdictions: GPC_LEGALLY_REQUIRED_JURISDICTIONS,
+          },
+        }),
+      );
+      expect(store.getState().source).toBe("default");
+      await flushMicrotasks();
+      expect(store.getState().source).toBe("gpc");
+      expect(store.getState().jurisdiction).toBe("US-CA");
+    });
+
+    it("respects per-category respectGPC: false", () => {
+      const categories: Category[] = [
+        { key: "essential", label: "Essential", locked: true },
+        { key: "analytics", label: "Analytics", respectGPC: false },
+        { key: "marketing", label: "Marketing" },
+      ];
+      const store = createConsentStore({
+        categories,
+        jurisdictionResolver: manualResolver("US-CA"),
+        gpc: { signal: true },
+      });
+      const decisions = { ...store.getState().decisions };
+      store.toggle("analytics");
+      expect(store.getState().decisions.analytics).toBe(!decisions.analytics);
+    });
+
+    it("user mutation after GPC flips source back to 'user'", () => {
+      const store = createConsentStore(
+        makeConfig({
+          jurisdictionResolver: manualResolver("US-CA"),
+          gpc: { signal: true },
+        }),
+      );
+      expect(store.getState().source).toBe("gpc");
+      store.acceptAll();
+      expect(store.getState().source).toBe("user");
+      expect(store.getState().decisions.marketing).toBe(true);
+    });
+
+    it("is fully bypassed when gpc.enabled is false (even with signal: true)", () => {
+      const store = createConsentStore(
+        makeConfig({
+          jurisdictionResolver: manualResolver("US-CA"),
+          gpc: { enabled: false, signal: true },
+        }),
+      );
+      expect(store.getState().source).toBe("default");
+      expect(store.getState().route).toBe("cookie");
+    });
+
+    it("reads navigator.globalPrivacyControl when no signal override (Brave parity)", () => {
+      vi.stubGlobal("navigator", { globalPrivacyControl: true });
+      const store = createConsentStore(
+        makeConfig({ jurisdictionResolver: manualResolver("US-CA") }),
+      );
+      expect(store.getState().source).toBe("gpc");
+    });
+
+    it("does not apply when navigator omits globalPrivacyControl (Chrome parity)", () => {
+      vi.stubGlobal("navigator", {});
+      const store = createConsentStore(
+        makeConfig({ jurisdictionResolver: manualResolver("US-CA") }),
+      );
+      expect(store.getState().source).toBe("default");
+      expect(store.getState().route).toBe("cookie");
     });
   });
 });

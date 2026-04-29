@@ -5,6 +5,15 @@ export type Category = {
   label: string;
   locked?: boolean;
   description?: string;
+  respectGPC?: boolean;
+};
+
+export type ConsentSource = "default" | "user" | "gpc";
+
+export type GPCConfig = {
+  enabled?: boolean;
+  applicableJurisdictions?: Jurisdiction[] | "all";
+  signal?: boolean;
 };
 
 export type Jurisdiction = "EEA" | "UK" | "CH" | "US" | `US-${string}` | "BR" | "CA" | "AU" | "ROW";
@@ -34,6 +43,7 @@ export type ConsentState = {
   jurisdiction: Jurisdiction | null;
   policyVersion: string;
   decidedAt: string | null;
+  source: ConsentSource;
 };
 
 export type OpenCookiesConfig = {
@@ -43,6 +53,7 @@ export type OpenCookiesConfig = {
   onUnknownCategory?: UnknownCategoryBehavior;
   jurisdictionResolver?: JurisdictionResolver;
   request?: ResolverContext;
+  gpc?: GPCConfig;
 };
 
 export type ConsentStore = {
