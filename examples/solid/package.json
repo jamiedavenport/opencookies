@@ -1,0 +1,23 @@
+{
+  "name": "@opencookies/example-solid",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview"
+  },
+  "dependencies": {
+    "@opencookies/core": "workspace:*",
+    "@opencookies/solid": "workspace:*",
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vite-plugin-solid": "^2.11.0",
+    "vite-plus": "latest"
+  }
+}
