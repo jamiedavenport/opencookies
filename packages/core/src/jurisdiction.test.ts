@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clientGeoResolver,
   countryToJurisdiction,
   headerResolver,
   manualResolver,
+  timezoneResolver,
 } from "./jurisdiction.ts";
 
 describe("countryToJurisdiction", () => {
@@ -124,6 +125,74 @@ describe("manualResolver", () => {
       headers: { "cf-ipcountry": "US" },
     });
     expect(r.resolve(req)).toBe("UK");
+  });
+});
+
+describe("timezoneResolver", () => {
+  const realDateTimeFormat = Intl.DateTimeFormat;
+
+  function stubZone(zone: string | undefined): void {
+    function FakeDTF(): Intl.DateTimeFormat {
+      return { resolvedOptions: () => ({ timeZone: zone }) } as unknown as Intl.DateTimeFormat;
+    }
+    Object.assign(FakeDTF, realDateTimeFormat);
+    Intl.DateTimeFormat = FakeDTF as unknown as typeof Intl.DateTimeFormat;
+  }
+
+  afterEach(() => {
+    Intl.DateTimeFormat = realDateTimeFormat;
+  });
+
+  it("maps an EEA zone to EEA", () => {
+    stubZone("Europe/Berlin");
+    expect(timezoneResolver().resolve()).toBe("EEA");
+  });
+
+  it("maps Europe/London to UK", () => {
+    stubZone("Europe/London");
+    expect(timezoneResolver().resolve()).toBe("UK");
+  });
+
+  it("maps Europe/Zurich to CH", () => {
+    stubZone("Europe/Zurich");
+    expect(timezoneResolver().resolve()).toBe("CH");
+  });
+
+  it("maps US zones to US (state-level not derivable from IANA zone)", () => {
+    stubZone("America/Los_Angeles");
+    expect(timezoneResolver().resolve()).toBe("US");
+    stubZone("America/New_York");
+    expect(timezoneResolver().resolve()).toBe("US");
+  });
+
+  it("maps a non-special-cased country zone to ROW", () => {
+    stubZone("Asia/Tokyo");
+    expect(timezoneResolver().resolve()).toBe("ROW");
+  });
+
+  it("returns null for an unknown zone", () => {
+    stubZone("Mars/Jezero");
+    expect(timezoneResolver().resolve()).toBeNull();
+  });
+
+  it("returns null when the zone is missing", () => {
+    stubZone(undefined);
+    expect(timezoneResolver().resolve()).toBeNull();
+  });
+
+  it("returns null when Intl.DateTimeFormat throws", () => {
+    Intl.DateTimeFormat = (() => {
+      throw new Error("boom");
+    }) as unknown as typeof Intl.DateTimeFormat;
+    expect(timezoneResolver().resolve()).toBeNull();
+  });
+
+  it("ignores the request argument", () => {
+    stubZone("Europe/Paris");
+    const req = new Request("https://example.com", {
+      headers: { "cf-ipcountry": "US" },
+    });
+    expect(timezoneResolver().resolve(req)).toBe("EEA");
   });
 });
 

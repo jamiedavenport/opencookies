@@ -28,6 +28,8 @@ export function gpcApplies(
 export function applyGPC(state: ConsentState, config: OpenCookiesConfig): ConsentState {
   if (!readGPCSignal(config.gpc)) return state;
   if (!gpcApplies(state.jurisdiction, config.gpc)) return state;
+  // An explicit user decision (W3C GPC §"affirmative consent") overrides the signal.
+  if (state.source === "user" && state.decidedAt !== null) return state;
 
   const decisions = { ...state.decisions };
   let changed = false;
@@ -42,15 +44,7 @@ export function applyGPC(state: ConsentState, config: OpenCookiesConfig): Consen
 
   if (!changed && state.source === "gpc") return state;
 
-  const allNonEssentialDenied = state.categories
-    .filter((c) => c.locked !== true)
-    .every((c) => decisions[c.key] === false);
-
-  return {
-    ...state,
-    decisions,
-    source: "gpc",
-    decidedAt: allNonEssentialDenied ? new Date().toISOString() : state.decidedAt,
-    route: allNonEssentialDenied ? "closed" : state.route,
-  };
+  // GPC is a signal, not a decision: leave route/decidedAt untouched so the
+  // banner remains visible and the user can affirmatively consent if they want.
+  return { ...state, decisions, source: "gpc" };
 }

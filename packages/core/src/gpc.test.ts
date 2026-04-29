@@ -113,10 +113,10 @@ describe("applyGPC", () => {
     expect(next.source).toBe("gpc");
   });
 
-  it("closes the banner and stamps decidedAt when all non-essential are denied", () => {
+  it("leaves route and decidedAt untouched (GPC is a signal, not a decision)", () => {
     const next = applyGPC(makeState(), makeConfig());
-    expect(next.route).toBe("closed");
-    expect(next.decidedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(next.route).toBe("cookie");
+    expect(next.decidedAt).toBeNull();
   });
 
   it("preserves categories with respectGPC: false", () => {
@@ -183,5 +183,26 @@ describe("applyGPC", () => {
     const initial = applyGPC(makeState(), makeConfig());
     const second = applyGPC(initial, makeConfig());
     expect(second).toBe(initial);
+  });
+
+  it("preserves explicit user decisions (affirmative consent overrides GPC)", () => {
+    const state = makeState({
+      source: "user",
+      decidedAt: "2026-04-29T00:00:00.000Z",
+      decisions: { essential: true, analytics: true, marketing: false },
+    });
+    const next = applyGPC(state, makeConfig());
+    expect(next).toBe(state);
+  });
+
+  it("still applies GPC when source is user but no decidedAt is recorded", () => {
+    const state = makeState({
+      source: "user",
+      decidedAt: null,
+      decisions: { essential: true, analytics: true, marketing: true },
+    });
+    const next = applyGPC(state, makeConfig());
+    expect(next.decisions.analytics).toBe(false);
+    expect(next.source).toBe("gpc");
   });
 });

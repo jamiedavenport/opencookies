@@ -1,3 +1,4 @@
+import { TZ_COUNTRY } from "./tz-country.ts";
 import type { Jurisdiction, JurisdictionResolver, ResolverContext } from "./types.ts";
 
 const EEA_COUNTRIES = new Set([
@@ -65,6 +66,24 @@ export function headerResolver(): JurisdictionResolver {
         if (value) return countryToJurisdiction(value);
       }
       return null;
+    },
+  };
+}
+
+export function timezoneResolver(): JurisdictionResolver {
+  return {
+    resolve() {
+      if (typeof Intl === "undefined" || typeof Intl.DateTimeFormat !== "function") return null;
+      let zone: string | undefined;
+      try {
+        zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      } catch {
+        return null;
+      }
+      if (!zone) return null;
+      const country = TZ_COUNTRY[zone];
+      if (!country) return null;
+      return countryToJurisdiction(country);
     },
   };
 }

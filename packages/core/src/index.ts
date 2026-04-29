@@ -7,6 +7,7 @@ export {
   countryToJurisdiction,
   headerResolver,
   manualResolver,
+  timezoneResolver,
 } from "./jurisdiction.ts";
 export { defineScript, gateScript, gateScripts } from "./scripts.ts";
 export { createConsentStore } from "./store.ts";

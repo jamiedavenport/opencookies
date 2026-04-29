@@ -424,8 +424,8 @@ describe("createConsentStore", () => {
       );
       const s = store.getState();
       expect(s.source).toBe("gpc");
-      expect(s.route).toBe("closed");
-      expect(s.decidedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(s.route).toBe("cookie");
+      expect(s.decidedAt).toBeNull();
     });
 
     it("does not apply when signal is false", () => {

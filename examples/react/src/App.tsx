@@ -167,10 +167,10 @@ function AnalyticsFallback() {
 }
 
 function DebugStrip() {
-  const { route, decisions, decidedAt } = useConsent();
+  const { route, decisions, decidedAt, jurisdiction } = useConsent();
   return (
     <pre className="overflow-x-auto rounded-md bg-slate-900 p-4 text-xs text-slate-100">
-      {JSON.stringify({ route, decisions, decidedAt }, null, 2)}
+      {JSON.stringify({ route, decisions, decidedAt, jurisdiction }, null, 2)}
     </pre>
   );
 }

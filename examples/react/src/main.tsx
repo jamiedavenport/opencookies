@@ -1,5 +1,5 @@
 import { OpenCookiesProvider } from "@opencookies/react";
-import type { Category } from "@opencookies/core";
+import { timezoneResolver, type Category } from "@opencookies/core";
 import { localStorageAdapter } from "@opencookies/core/storage/local-storage";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -27,7 +27,13 @@ const categories: Category[] = [
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <OpenCookiesProvider config={{ categories, adapter: localStorageAdapter() }}>
+    <OpenCookiesProvider
+      config={{
+        categories,
+        adapter: localStorageAdapter(),
+        jurisdictionResolver: timezoneResolver(),
+      }}
+    >
       <App />
     </OpenCookiesProvider>
   </StrictMode>,
