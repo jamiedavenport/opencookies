@@ -1,0 +1,117 @@
+"use client";
+
+import {
+  createConsentStore,
+  type Category,
+  type ConsentExpr,
+  type ConsentStore,
+  type Jurisdiction,
+  type OpenCookiesConfig,
+  type Route,
+} from "@opencookies/core";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+
+export type OpenCookiesProviderProps =
+  | { config: OpenCookiesConfig; store?: undefined; children: ReactNode }
+  | { store: ConsentStore; config?: undefined; children: ReactNode };
+
+const StoreContext = createContext<ConsentStore | null>(null);
+
+export function OpenCookiesProvider(props: OpenCookiesProviderProps) {
+  const [store] = useState<ConsentStore>(() => {
+    if (props.store) return props.store;
+    return createConsentStore(props.config);
+  });
+  return <StoreContext.Provider value={store}>{props.children}</StoreContext.Provider>;
+}
+
+function useStore(): ConsentStore {
+  const store = useContext(StoreContext);
+  if (!store) {
+    throw new Error(
+      "useConsent / useCategory / ConsentGate must be used inside <OpenCookiesProvider>",
+    );
+  }
+  return store;
+}
+
+export type UseConsentResult = {
+  route: Route;
+  categories: Category[];
+  decisions: Record<string, boolean>;
+  jurisdiction: Jurisdiction | null;
+  policyVersion: string;
+  decidedAt: string | null;
+  acceptAll: ConsentStore["acceptAll"];
+  acceptNecessary: ConsentStore["acceptNecessary"];
+  reject: ConsentStore["reject"];
+  toggle: ConsentStore["toggle"];
+  save: ConsentStore["save"];
+  setRoute: ConsentStore["setRoute"];
+  has: ConsentStore["has"];
+};
+
+export function useConsent(): UseConsentResult {
+  const store = useStore();
+  const state = useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => store.getState(),
+    () => store.getState(),
+  );
+  return {
+    route: state.route,
+    categories: state.categories,
+    decisions: state.decisions,
+    jurisdiction: state.jurisdiction,
+    policyVersion: state.policyVersion,
+    decidedAt: state.decidedAt,
+    acceptAll: () => store.acceptAll(),
+    acceptNecessary: () => store.acceptNecessary(),
+    reject: () => store.reject(),
+    toggle: (key) => store.toggle(key),
+    save: () => store.save(),
+    setRoute: (route) => store.setRoute(route),
+    has: (expr) => store.has(expr),
+  };
+}
+
+export type UseCategoryResult = {
+  granted: boolean;
+  toggle: () => void;
+};
+
+export function useCategory(key: string): UseCategoryResult {
+  const store = useStore();
+  const granted = useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => store.getState().decisions[key] === true,
+    () => store.getState().decisions[key] === true,
+  );
+  const toggle = useCallback(() => {
+    store.toggle(key);
+  }, [store, key]);
+  return { granted, toggle };
+}
+
+export type ConsentGateProps = {
+  requires: ConsentExpr;
+  fallback?: ReactNode;
+  children: ReactNode;
+};
+
+export function ConsentGate({ requires, fallback = null, children }: ConsentGateProps) {
+  const store = useStore();
+  const granted = useSyncExternalStore(
+    (cb) => store.subscribe(cb),
+    () => store.has(requires),
+    () => store.has(requires),
+  );
+  return <>{granted ? children : fallback}</>;
+}

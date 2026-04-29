@@ -1,17 +1,29 @@
+import { OpenCookiesProvider } from "@opencookies/react";
+import type { Category } from "@opencookies/core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { App } from "./App.tsx";
+import "./index.css";
 
-function App() {
-  return (
-    <main>
-      <h1>OpenCookies + React</h1>
-      <p>Example placeholder.</p>
-    </main>
-  );
-}
+const categories: Category[] = [
+  {
+    key: "essential",
+    label: "Essential",
+    locked: true,
+    description: "Required for the site to work.",
+  },
+  {
+    key: "analytics",
+    label: "Analytics",
+    description: "Helps us understand how the site is used.",
+  },
+  { key: "marketing", label: "Marketing", description: "Used to personalize ads and campaigns." },
+];
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <OpenCookiesProvider config={{ categories }}>
+      <App />
+    </OpenCookiesProvider>
   </StrictMode>,
 );
