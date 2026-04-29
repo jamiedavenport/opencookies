@@ -1,7 +1,6 @@
 {
   "name": "@opencookies/scripts",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
   "license": "Apache-2.0",
   "bin": {
     "opencookies-scripts": "./dist/cli.mjs"
@@ -13,6 +12,12 @@
   "exports": {
     ".": "./dist/index.mjs",
     "./cli": "./dist/cli.mjs",
+    "./ga4": "./dist/ga4.mjs",
+    "./google-tag-manager": "./dist/google-tag-manager.mjs",
+    "./hotjar": "./dist/hotjar.mjs",
+    "./meta-pixel": "./dist/meta-pixel.mjs",
+    "./posthog": "./dist/posthog.mjs",
+    "./segment": "./dist/segment.mjs",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -25,8 +30,14 @@
     "check": "vp check"
   },
   "devDependencies": {
+    "@opencookies/core": "workspace:*",
     "@types/node": "^25.5.0",
+    "happy-dom": "^15.0.0",
     "typescript": "^6.0.2",
-    "vite-plus": "latest"
+    "vite-plus": "latest",
+    "vitest": "latest"
+  },
+  "peerDependencies": {
+    "@opencookies/core": "workspace:*"
   }
 }
