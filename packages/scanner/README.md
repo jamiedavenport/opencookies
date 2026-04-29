@@ -143,6 +143,12 @@ Cal.com and Documenso into `tests/real-world/.cache/` (gitignored) and
 runs the scanner against them, asserting zero false positives on a curated
 allowlist of known-clean files. The cache is reused across runs.
 
+## See also
+
+- [`@opencookies/vite`](../vite/) — Vite plugin that runs the scanner during dev and CI (recommended; you usually don't call the scanner directly)
+- [`@opencookies/cli`](../cli/) — terminal entry point for one-off scans and config sync
+- [`@opencookies/core`](../core/) — runtime that actually enforces the consent decisions the scanner is checking for
+
 ## License
 
 Apache-2.0

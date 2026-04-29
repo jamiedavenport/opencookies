@@ -97,6 +97,21 @@ export default {
 
 The plugin scans your code for cookie writes and known third-party vendors, and flags any that aren't behind a `ConsentGate` or `has()` check.
 
+## Packages
+
+| Package                                       | Description                                                                                   |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [`@opencookies/core`](./packages/core/)       | Headless consent store, GPC handling, jurisdiction resolvers, script gating, storage adapters |
+| [`@opencookies/react`](./packages/react/)     | React 18+ adapter — `useConsent`, `useCategory`, `<ConsentGate>`                              |
+| [`@opencookies/vue`](./packages/vue/)         | Vue 3 adapter — plugin or `<OpenCookiesProvider>`, composables, `<ConsentGate>`               |
+| [`@opencookies/solid`](./packages/solid/)     | Solid adapter — signals-based hooks and provider                                              |
+| [`@opencookies/svelte`](./packages/svelte/)   | Svelte 5 runes adapter (+ Svelte 4 `Readable` fallback at `/stores`)                          |
+| [`@opencookies/scanner`](./packages/scanner/) | Static AST detection of cookie writes and vendor scripts                                      |
+| [`@opencookies/vite`](./packages/vite/)       | Vite plugin: surfaces ungated cookie / vendor calls in dev and CI                             |
+| [`@opencookies/cli`](./packages/cli/)         | Terminal UI for scans and config sync _(scaffold)_                                            |
+
+Until a docs site lands, each package README is the canonical reference. Shared concepts (categories, GPC, jurisdiction, re-consent triggers, script gating, storage adapters) live in [`@opencookies/core`](./packages/core/); the framework adapters are thin wrappers over it.
+
 ## Companion to OpenPolicy
 
 OpenCookies pairs with [OpenPolicy](https://openpolicy.sh) for the full privacy story: a single config drives your cookie banner, your cookie policy document, and your privacy policy disclosures. They work great together — and just as well apart.
@@ -104,10 +119,6 @@ OpenCookies pairs with [OpenPolicy](https://openpolicy.sh) for the full privacy 
 ## Status
 
 Pre-1.0 and under active development. APIs may change before v1. Track progress on the [roadmap](https://github.com/opencookies/opencookies/issues).
-
-## Documentation
-
-TODO
 
 ## License
 

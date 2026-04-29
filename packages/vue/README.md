@@ -1,6 +1,6 @@
 # @opencookies/vue
 
-Vue 3 adapter for OpenCookies. Bridges `@opencookies/core` with Vue's reactivity via `shallowRef` and `computed`.
+Vue 3 adapter for OpenCookies. Bridges [`@opencookies/core`](../core/) with Vue's reactivity via `shallowRef` and `computed`.
 
 ## Install
 
@@ -156,6 +156,16 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.use(OpenCookiesPlugin, { config: { categories } });
 });
 ```
+
+## Shared concepts
+
+Categories, GPC handling, jurisdiction resolvers, re-consent triggers, script gating (`gateScript`), and storage adapters all live in [`@opencookies/core`](../core/) — the Vue adapter is a thin reactivity wrapper. A working example is in [`examples/vue`](../../examples/vue/).
+
+## See also
+
+- [`@opencookies/core`](../core/) — shared concepts and config reference
+- [`@opencookies/vite`](../vite/) — build-time check for ungated cookie / vendor calls
+- [Other adapters](../../#packages) — React, Solid, Svelte
 
 ## License
 

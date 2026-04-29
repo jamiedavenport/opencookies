@@ -2,13 +2,44 @@
 
 Framework-agnostic consent store for OpenCookies. Owns consent state and broadcasts changes to subscribers via a small pub/sub interface that each framework adapter wraps in its own reactivity primitive.
 
-> Status: scaffold. API lands in [OP-295](https://linear.app/open-policy/issue/OP-295).
+If you're using a framework, install one of the adapters instead and read this for the shared concepts: [react](../react/) · [vue](../vue/) · [solid](../solid/) · [svelte](../svelte/).
 
 ## Install
 
 ```sh
 bun add @opencookies/core
 ```
+
+## Quick start
+
+```ts
+import { createConsentStore } from "@opencookies/core";
+import { localStorageAdapter } from "@opencookies/core/storage/local-storage";
+
+const store = createConsentStore({
+  categories: [
+    { key: "essential", label: "Essential", locked: true },
+    { key: "analytics", label: "Analytics" },
+    { key: "marketing", label: "Marketing" },
+  ],
+  adapter: localStorageAdapter(),
+});
+
+store.subscribe((state) => render(state));
+store.acceptAll();
+```
+
+The store's surface: `getState()`, `subscribe()`, `acceptAll()`, `acceptNecessary()`, `reject()`, `toggle(key)`, `save()`, `setRoute()`, `has(expr)`, `getConsentRecord()`, `getPreviousRecord()`, `refreshJurisdiction()`. See [`types.ts`](./src/types.ts) for the full shape.
+
+## Storage adapters
+
+Decisions persist via a `StorageAdapter` passed to `createConsentStore({ adapter })`. Three adapters ship as subpath imports:
+
+- `@opencookies/core/storage/local-storage` — browser localStorage. Subscribes to `storage` events for cross-tab sync.
+- `@opencookies/core/storage/cookie` — `document.cookie` with a configurable name, domain, and `Max-Age`. Survives subdomain navigation.
+- `@opencookies/core/storage/server` — header-based read + `Set-Cookie` write, for SSR runtimes.
+
+Implement the `StorageAdapter` interface (`read`, `write`, `clear`, optional `subscribe`) for anything else (IndexedDB, your own backend, etc.).
 
 ## Jurisdiction
 
@@ -25,11 +56,14 @@ const store = createConsentStore({
 });
 ```
 
-Three resolvers ship in v1:
+Four resolvers ship today:
 
-- `headerResolver()` reads `cf-ipcountry`, `x-vercel-ip-country`, or `x-country` and normalises the country to a `Jurisdiction`.
+- `headerResolver()` reads `cf-ipcountry`, `x-vercel-ip-country`, or `x-country` and normalises the country to a `Jurisdiction`. Best fit for edge runtimes (Cloudflare, Vercel, Netlify).
+- `timezoneResolver()` reads `Intl.DateTimeFormat().resolvedOptions().timeZone` and looks up the country via a bundled IANA → ISO map. Zero network, no IP leak. State-level US jurisdictions (`US-CA`, `US-CO`, …) are not derivable from IANA zones — `America/Los_Angeles` returns `"US"`, not `"US-CA"`.
 - `manualResolver(jurisdiction)` returns a fixed value — useful for tests and SSR overrides.
 - `clientGeoResolver({ endpoint })` `fetch`es a developer-provided endpoint that returns `{ country, region? }`. No IP database is bundled.
+
+There is no default resolver; if you omit `jurisdictionResolver`, `state.jurisdiction` stays `null` and any `gpc.applicableJurisdictions` filter that requires a known jurisdiction is treated as not matching.
 
 Call `store.refreshJurisdiction(req?)` to re-resolve (e.g. after client-side navigation in an SSR app). The resolver is otherwise called once per session and cached.
 
@@ -55,7 +89,7 @@ export function ipApiResolver(): JurisdictionResolver {
 
 [Global Privacy Control](https://globalprivacycontrol.org/) (GPC) is a browser signal asserting "do not sell or share". It is legally enforceable under California's CPRA and the consumer-privacy laws of Colorado, Connecticut, Virginia, and others.
 
-When GPC is asserted, the store treats opt-out categories as denied without prompting, sets `source: "gpc"` on the consent record, and closes the banner if there is nothing left to ask.
+When GPC is asserted, the store sets `decisions` for opt-out categories to `false` and stamps `state.source = "gpc"`. GPC is treated as a _signal_, not a _decision_: `route` and `decidedAt` stay untouched so the banner remains visible and the user can still affirmatively consent (per the W3C GPC draft spec, an explicit user grant overrides the signal). Nothing is persisted to your storage adapter for GPC-only state — `getConsentRecord()` returns `null` until the user acts.
 
 The privacy-positive default applies GPC in every jurisdiction with no extra config:
 
@@ -63,8 +97,10 @@ The privacy-positive default applies GPC in every jurisdiction with no extra con
 import { createConsentStore } from "@opencookies/core";
 
 const store = createConsentStore({ categories });
-// Brave (and any browser asserting GPC) sees the banner skipped automatically.
+// Brave (and any browser asserting GPC) starts with all opt-outs denied.
 ```
+
+Once a user makes an explicit decision (`acceptAll`, `toggle`, etc.) the resulting record has `state.source === "user"` and is preserved on reload — `applyGPC` will not overwrite it.
 
 To scope GPC to the legally-required US states only:
 
@@ -234,6 +270,13 @@ Useful options on the script definition:
 A loaded script cannot be un-loaded. If consent is later revoked, OpenCookies does **not** unmount the `<script>` tag, restore the queue stubs, or re-evaluate the gate. Recommend `location.reload()` to your users for a clean slate.
 
 For inline JSX gating (e.g. wrapping a `<MapWidget />` in a marketing-consent gate) the framework adapters expose `<ConsentGate>` with the same `requires` expression shape.
+
+## See also
+
+- [`@opencookies/react`](../react/), [`@opencookies/vue`](../vue/), [`@opencookies/solid`](../solid/), [`@opencookies/svelte`](../svelte/) — framework adapters
+- [`@opencookies/scanner`](../scanner/) — static AST detection of ungated cookie / vendor calls
+- [`@opencookies/vite`](../vite/) — Vite plugin that runs the scanner during dev and CI
+- [Root README](../../) — project overview and the full packages table
 
 ## License
 

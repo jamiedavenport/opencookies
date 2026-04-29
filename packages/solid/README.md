@@ -1,6 +1,6 @@
 # @opencookies/solid
 
-Solid adapter for OpenCookies. Built on Solid's signals — fine-grained reactivity with no virtual DOM cost.
+Solid adapter for OpenCookies. Built on Solid's signals — fine-grained reactivity with no virtual DOM cost. Wraps [`@opencookies/core`](../core/).
 
 ## Install
 
@@ -122,6 +122,16 @@ Pass a pre-built store via `<OpenCookiesProvider store={store}>` if you need SSR
 ## Bundling
 
 This package ships source via the `solid` export condition, so consumers using `vite-plugin-solid` (Vite, SolidStart, Astro) will compile the components in their own pipeline.
+
+## Shared concepts
+
+Categories, GPC handling, jurisdiction resolvers, re-consent triggers, script gating (`gateScript`), and storage adapters all live in [`@opencookies/core`](../core/) — the Solid adapter is a thin reactivity wrapper. A working example is in [`examples/solid`](../../examples/solid/).
+
+## See also
+
+- [`@opencookies/core`](../core/) — shared concepts and config reference
+- [`@opencookies/vite`](../vite/) — build-time check for ungated cookie / vendor calls
+- [Other adapters](../../#packages) — React, Vue, Svelte
 
 ## License
 

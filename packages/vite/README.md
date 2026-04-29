@@ -88,6 +88,12 @@ Or per-file (must appear in the first 10 lines):
 
 Compatible with Vite 5 and 6. Framework-agnostic — works with React, Vue, Svelte, SolidStart, SvelteKit, Astro, Nuxt 3, and Remix because the plugin only consumes file paths and source text.
 
+## See also
+
+- [`@opencookies/scanner`](../scanner/) — underlying detection engine, suppression syntax, custom rules
+- [`@opencookies/core`](../core/) — runtime store and `<ConsentGate>` / `has()` shapes the scanner looks for
+- [Framework adapters](../../#packages) — React, Vue, Solid, Svelte
+
 ## License
 
 Apache-2.0

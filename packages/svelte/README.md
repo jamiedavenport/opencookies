@@ -1,6 +1,6 @@
 # @opencookies/svelte
 
-Svelte adapter for OpenCookies. Runes-first for Svelte 5; ships a `Readable<ConsentState>` fallback at `@opencookies/svelte/stores` for Svelte 4.
+Svelte adapter for OpenCookies. Runes-first for Svelte 5; ships a `Readable<ConsentState>` fallback at `@opencookies/svelte/stores` for Svelte 4. Wraps [`@opencookies/core`](../core/).
 
 ## Install
 
@@ -140,6 +140,16 @@ For Svelte 4 codebases (or when you prefer `$store` syntax), import from the `/s
 ```
 
 `createConsentReadable` returns a `Readable<ConsentState>` augmented with the same action methods as `getConsent()` (`acceptAll`, `toggle`, `save`, `has`, etc.).
+
+## Shared concepts
+
+Categories, GPC handling, jurisdiction resolvers, re-consent triggers, script gating (`gateScript`), and storage adapters all live in [`@opencookies/core`](../core/) — the Svelte adapter is a thin reactivity wrapper. A working example is in [`examples/svelte`](../../examples/svelte/).
+
+## See also
+
+- [`@opencookies/core`](../core/) — shared concepts and config reference
+- [`@opencookies/vite`](../vite/) — build-time check for ungated cookie / vendor calls
+- [Other adapters](../../#packages) — React, Vue, Solid
 
 ## License
 
