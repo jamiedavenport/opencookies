@@ -1,11 +1,10 @@
+import solid from "vite-plugin-solid";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
-  pack: {
-    dts: {
-      tsgo: true,
-    },
-    exports: true,
+  plugins: [solid({ ssr: false })],
+  resolve: {
+    conditions: ["browser", "development"],
   },
   lint: {
     options: {

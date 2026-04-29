@@ -1,12 +1,33 @@
+import type { Category } from "@opencookies/core";
+import { OpenCookiesProvider } from "@opencookies/solid";
 import { render } from "solid-js/web";
+import App from "./App.tsx";
+import "./index.css";
 
-function App() {
-  return (
-    <main>
-      <h1>OpenCookies + Solid</h1>
-      <p>Example placeholder.</p>
-    </main>
-  );
-}
+const categories: Category[] = [
+  {
+    key: "essential",
+    label: "Essential",
+    locked: true,
+    description: "Required for the site to work.",
+  },
+  {
+    key: "analytics",
+    label: "Analytics",
+    description: "Helps us understand how the site is used.",
+  },
+  {
+    key: "marketing",
+    label: "Marketing",
+    description: "Used to personalize ads and campaigns.",
+  },
+];
 
-render(() => <App />, document.getElementById("root")!);
+render(
+  () => (
+    <OpenCookiesProvider config={{ categories }}>
+      <App />
+    </OpenCookiesProvider>
+  ),
+  document.getElementById("root")!,
+);
