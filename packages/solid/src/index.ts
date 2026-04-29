@@ -12,6 +12,8 @@ import {
   createConsentStore,
   type Category,
   type ConsentExpr,
+  type ConsentRecord,
+  type ConsentRecordSource,
   type ConsentState,
   type ConsentStore,
   type Jurisdiction,
@@ -67,6 +69,7 @@ export type UseConsentResult = {
   toggle: ConsentStore["toggle"];
   save: ConsentStore["save"];
   setRoute: ConsentStore["setRoute"];
+  getConsentRecord: ConsentStore["getConsentRecord"];
 };
 
 export function useConsent(): UseConsentResult {
@@ -82,12 +85,16 @@ export function useConsent(): UseConsentResult {
       state();
       return store.has(expr);
     },
-    acceptAll: () => store.acceptAll(),
-    acceptNecessary: () => store.acceptNecessary(),
-    reject: () => store.reject(),
-    toggle: (key) => store.toggle(key),
-    save: () => store.save(),
+    acceptAll: (opts) => store.acceptAll(opts),
+    acceptNecessary: (opts) => store.acceptNecessary(opts),
+    reject: (opts) => store.reject(opts),
+    toggle: (key, opts) => store.toggle(key, opts),
+    save: (opts) => store.save(opts),
     setRoute: (route) => store.setRoute(route),
+    getConsentRecord: () => {
+      state();
+      return store.getConsentRecord();
+    },
   };
 }
 
@@ -137,6 +144,8 @@ export function ConsentGate(props: ConsentGateProps): JSX.Element {
 export type {
   Category,
   ConsentExpr,
+  ConsentRecord,
+  ConsentRecordSource,
   ConsentState,
   ConsentStore,
   Jurisdiction,

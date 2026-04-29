@@ -1,9 +1,12 @@
 import { evaluate } from "./expr.ts";
 import { applyGPC } from "./gpc.ts";
-import { recordEquals, toRecord } from "./storage/record.ts";
+import { resolveLocale } from "./locale.ts";
+import { fromUnknown, recordEquals, toRecord } from "./storage/record.ts";
 import type {
+  ActionOptions,
   ConsentExpr,
   ConsentRecord,
+  ConsentRecordSource,
   ConsentState,
   ConsentStore,
   Jurisdiction,
@@ -16,9 +19,10 @@ type Listener = (state: ConsentState) => void;
 
 export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
   const listeners = new Set<Listener>();
+  const locale = resolveLocale(config);
 
   const initialJurisdiction = resolveSync(config, config.request);
-  const initialRecord = readSync(config);
+  const initialRecord = readSync(config, locale);
 
   let state: ConsentState = applyGPC(
     mergeRecord(
@@ -36,16 +40,18 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
     config,
   );
 
+  let lastDecisionSource: ConsentRecordSource | null = initialRecord.value?.source ?? null;
   let lastWritten: ConsentRecord | null = initialRecord.value;
   let suspendWrite = false;
 
   if (initialRecord.pending) {
-    void initialRecord.pending.then((value) => {
-      if (value === null) return;
+    void initialRecord.pending.then((record) => {
+      if (record === null) return;
       suspendWrite = true;
-      commit(applyGPC(mergeRecord(state, value), config));
+      commit(applyGPC(mergeRecord(state, record), config));
       suspendWrite = false;
-      lastWritten = value;
+      lastDecisionSource = record.source;
+      lastWritten = record;
     });
   }
 
@@ -56,11 +62,13 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
   }
 
   if (config.adapter?.subscribe) {
-    config.adapter.subscribe((record) => {
+    config.adapter.subscribe((raw) => {
+      const record = fromUnknown(raw, locale);
       if (record === null) return;
       suspendWrite = true;
       commit(applyGPC(mergeRecord(state, record), config));
       suspendWrite = false;
+      lastDecisionSource = record.source;
       lastWritten = record;
     });
   }
@@ -73,7 +81,8 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
 
   function persist(): void {
     if (!config.adapter || suspendWrite) return;
-    const record = toRecord(state);
+    if (state.decidedAt === null || lastDecisionSource === null) return;
+    const record = toRecord(state, lastDecisionSource, locale);
     if (lastWritten && recordEquals(lastWritten, record)) return;
     lastWritten = record;
     try {
@@ -88,6 +97,11 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
     }
   }
 
+  function inferSource(routeBefore: Route, opts?: ActionOptions): ConsentRecordSource {
+    if (opts?.source) return opts.source;
+    return routeBefore === "preferences" ? "preferences" : "banner";
+  }
+
   function decisionsAll(value: boolean): Record<string, boolean> {
     return Object.fromEntries(state.categories.map((c) => [c.key, value]));
   }
@@ -100,13 +114,18 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
     getState() {
       return state;
     },
+    getConsentRecord() {
+      if (state.decidedAt === null || lastDecisionSource === null) return null;
+      return toRecord(state, lastDecisionSource, locale);
+    },
     subscribe(listener: Listener) {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
       };
     },
-    acceptAll() {
+    acceptAll(opts?: ActionOptions) {
+      lastDecisionSource = inferSource(state.route, opts);
       commit({
         ...state,
         decisions: decisionsAll(true),
@@ -115,7 +134,8 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         source: "user",
       });
     },
-    acceptNecessary() {
+    acceptNecessary(opts?: ActionOptions) {
+      lastDecisionSource = inferSource(state.route, opts);
       commit({
         ...state,
         decisions: decisionsNecessary(),
@@ -124,7 +144,8 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         source: "user",
       });
     },
-    reject() {
+    reject(opts?: ActionOptions) {
+      lastDecisionSource = inferSource(state.route, opts);
       commit({
         ...state,
         decisions: decisionsNecessary(),
@@ -133,9 +154,10 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         source: "user",
       });
     },
-    toggle(category: string) {
+    toggle(category: string, opts?: ActionOptions) {
       const cat = state.categories.find((c) => c.key === category);
       if (!cat || cat.locked === true) return;
+      lastDecisionSource = inferSource(state.route, opts);
       commit({
         ...state,
         decisions: {
@@ -145,7 +167,8 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
         source: "user",
       });
     },
-    save() {
+    save(opts?: ActionOptions) {
+      lastDecisionSource = inferSource(state.route, opts);
       commit({
         ...state,
         decidedAt: new Date().toISOString(),
@@ -237,7 +260,7 @@ type InitialRecord = {
   pending: Promise<ConsentRecord | null> | null;
 };
 
-function readSync(config: OpenCookiesConfig): InitialRecord {
+function readSync(config: OpenCookiesConfig, locale: string): InitialRecord {
   if (!config.adapter) return { value: null, pending: null };
   let result: Promise<ConsentRecord | null> | ConsentRecord | null;
   try {
@@ -247,13 +270,15 @@ function readSync(config: OpenCookiesConfig): InitialRecord {
     return { value: null, pending: null };
   }
   if (isPromise(result)) {
-    const pending = result.catch((err) => {
-      console.warn("[opencookies] adapter.read failed:", err);
-      return null;
-    });
+    const pending = result
+      .then((raw) => fromUnknown(raw, locale))
+      .catch((err) => {
+        console.warn("[opencookies] adapter.read failed:", err);
+        return null;
+      });
     return { value: null, pending };
   }
-  return { value: result, pending: null };
+  return { value: fromUnknown(result, locale), pending: null };
 }
 
 function mergeRecord(state: ConsentState, record: ConsentRecord | null): ConsentState {
@@ -274,6 +299,6 @@ function mergeRecord(state: ConsentState, record: ConsentRecord | null): Consent
     jurisdiction: record.jurisdiction ?? state.jurisdiction,
     policyVersion: record.policyVersion || state.policyVersion,
     decidedAt: record.decidedAt,
-    source: record.source,
+    source: "user",
   };
 }

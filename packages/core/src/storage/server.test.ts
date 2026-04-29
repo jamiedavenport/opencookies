@@ -3,11 +3,13 @@ import type { ConsentRecord } from "../types.ts";
 import { serverAdapter } from "./server.ts";
 
 const sample: ConsentRecord = {
+  schemaVersion: 1,
   decisions: { essential: true, analytics: false },
   jurisdiction: "US",
   policyVersion: "v1",
   decidedAt: "2026-04-29T00:00:00.000Z",
-  source: "user",
+  locale: "en-GB",
+  source: "banner",
 };
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {

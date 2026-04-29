@@ -35,7 +35,7 @@ export default function Preferences() {
             <button
               type="button"
               class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
-              onClick={save}
+              onClick={() => save()}
             >
               Save
             </button>

@@ -21,14 +21,14 @@ export default function Banner() {
             <button
               type="button"
               class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
-              onClick={acceptNecessary}
+              onClick={() => acceptNecessary()}
             >
               Necessary only
             </button>
             <button
               type="button"
               class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
-              onClick={acceptAll}
+              onClick={() => acceptAll()}
             >
               Accept all
             </button>

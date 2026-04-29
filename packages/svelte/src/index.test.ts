@@ -60,6 +60,17 @@ describe("setOpenCookiesContext + getConsent", () => {
     expect(getByTestId("decided-at").textContent).not.toBe("null");
     expect(getByTestId("route").textContent).toBe("closed");
   });
+
+  it("getConsentRecord returns null pre-decision and a v1 record after acceptAll", () => {
+    const store = createConsentStore({ categories: baseCategories });
+    const { getByTestId } = render(Harness, { store });
+    expect(getByTestId("record-source").textContent).toBe("null");
+    expect(getByTestId("record-schema").textContent).toBe("null");
+    store.acceptAll();
+    flushSync();
+    expect(getByTestId("record-source").textContent).toBe("banner");
+    expect(getByTestId("record-schema").textContent).toBe("1");
+  });
 });
 
 describe("ConsentGate", () => {

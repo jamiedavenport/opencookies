@@ -46,12 +46,16 @@ export type ConsentState = {
   source: ConsentSource;
 };
 
+export type ConsentRecordSource = "banner" | "preferences" | "api" | "import";
+
 export type ConsentRecord = {
+  schemaVersion: 1;
   decisions: Record<string, boolean>;
-  jurisdiction: Jurisdiction | null;
   policyVersion: string;
-  decidedAt: string | null;
-  source: ConsentSource;
+  decidedAt: string;
+  jurisdiction: Jurisdiction | null;
+  locale: string;
+  source: ConsentRecordSource;
 };
 
 export type StorageAdapter = {
@@ -64,6 +68,7 @@ export type StorageAdapter = {
 export type OpenCookiesConfig = {
   categories: Category[];
   policyVersion?: string;
+  locale?: string;
   initialRoute?: Route;
   onUnknownCategory?: UnknownCategoryBehavior;
   jurisdictionResolver?: JurisdictionResolver;
@@ -72,14 +77,19 @@ export type OpenCookiesConfig = {
   adapter?: StorageAdapter;
 };
 
+export type ActionOptions = {
+  source?: ConsentRecordSource;
+};
+
 export type ConsentStore = {
   getState(): ConsentState;
+  getConsentRecord(): ConsentRecord | null;
   subscribe(listener: (state: ConsentState) => void): () => void;
-  acceptAll(): void;
-  acceptNecessary(): void;
-  reject(): void;
-  toggle(category: string): void;
-  save(): void;
+  acceptAll(opts?: ActionOptions): void;
+  acceptNecessary(opts?: ActionOptions): void;
+  reject(opts?: ActionOptions): void;
+  toggle(category: string, opts?: ActionOptions): void;
+  save(opts?: ActionOptions): void;
   setRoute(route: Route): void;
   has(expr: ConsentExpr): boolean;
   refreshJurisdiction(req?: ResolverContext): Promise<Jurisdiction | null>;

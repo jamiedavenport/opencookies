@@ -16,6 +16,8 @@ import {
   createConsentStore,
   type Category,
   type ConsentExpr,
+  type ConsentRecord,
+  type ConsentRecordSource,
   type ConsentState,
   type ConsentStore,
   type Jurisdiction,
@@ -97,6 +99,7 @@ export type UseConsentResult = {
   save: ConsentStore["save"];
   setRoute: ConsentStore["setRoute"];
   has: ConsentStore["has"];
+  getConsentRecord: ConsentStore["getConsentRecord"];
 };
 
 export function useConsent(): UseConsentResult {
@@ -109,13 +112,14 @@ export function useConsent(): UseConsentResult {
     jurisdiction: computed(() => state.value.jurisdiction),
     policyVersion: computed(() => state.value.policyVersion),
     decidedAt: computed(() => state.value.decidedAt),
-    acceptAll: () => store.acceptAll(),
-    acceptNecessary: () => store.acceptNecessary(),
-    reject: () => store.reject(),
-    toggle: (key) => store.toggle(key),
-    save: () => store.save(),
+    acceptAll: (opts) => store.acceptAll(opts),
+    acceptNecessary: (opts) => store.acceptNecessary(opts),
+    reject: (opts) => store.reject(opts),
+    toggle: (key, opts) => store.toggle(key, opts),
+    save: (opts) => store.save(opts),
     setRoute: (route) => store.setRoute(route),
     has: (expr) => store.has(expr),
+    getConsentRecord: () => store.getConsentRecord(),
   };
 }
 
@@ -159,6 +163,8 @@ export const ConsentGate = defineComponent({
 export type {
   Category,
   ConsentExpr,
+  ConsentRecord,
+  ConsentRecordSource,
   ConsentState,
   ConsentStore,
   Jurisdiction,

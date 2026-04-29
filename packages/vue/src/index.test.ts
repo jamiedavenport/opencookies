@@ -155,6 +155,20 @@ describe("useConsent", () => {
     await wrapper.vm.$nextTick();
     expect(captured?.route.value).toBe("preferences");
   });
+
+  it("getConsentRecord returns null pre-decision and a v1 record after acceptAll", async () => {
+    let captured: ReturnType<typeof useConsent> | undefined;
+    const wrapper = withProvider(() => {
+      captured = useConsent();
+    });
+    expect(captured?.getConsentRecord()).toBeNull();
+    captured?.acceptAll();
+    await wrapper.vm.$nextTick();
+    const record = captured?.getConsentRecord();
+    expect(record).not.toBeNull();
+    expect(record?.schemaVersion).toBe(1);
+    expect(record?.source).toBe("banner");
+  });
 });
 
 describe("useCategory", () => {

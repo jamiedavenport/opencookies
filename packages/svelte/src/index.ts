@@ -1,3 +1,15 @@
+export type {
+  ActionOptions,
+  Category,
+  ConsentExpr,
+  ConsentRecord,
+  ConsentRecordSource,
+  ConsentState,
+  ConsentStore,
+  Jurisdiction,
+  OpenCookiesConfig,
+  Route,
+} from "@opencookies/core";
 export { default as ConsentGate } from "./ConsentGate.svelte";
 export {
   CategoryRune,

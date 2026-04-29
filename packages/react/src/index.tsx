@@ -4,6 +4,8 @@ import {
   createConsentStore,
   type Category,
   type ConsentExpr,
+  type ConsentRecord,
+  type ConsentRecordSource,
   type ConsentStore,
   type Jurisdiction,
   type OpenCookiesConfig,
@@ -56,6 +58,7 @@ export type UseConsentResult = {
   save: ConsentStore["save"];
   setRoute: ConsentStore["setRoute"];
   has: ConsentStore["has"];
+  getConsentRecord: ConsentStore["getConsentRecord"];
 };
 
 export function useConsent(): UseConsentResult {
@@ -72,15 +75,18 @@ export function useConsent(): UseConsentResult {
     jurisdiction: state.jurisdiction,
     policyVersion: state.policyVersion,
     decidedAt: state.decidedAt,
-    acceptAll: () => store.acceptAll(),
-    acceptNecessary: () => store.acceptNecessary(),
-    reject: () => store.reject(),
-    toggle: (key) => store.toggle(key),
-    save: () => store.save(),
+    acceptAll: (opts) => store.acceptAll(opts),
+    acceptNecessary: (opts) => store.acceptNecessary(opts),
+    reject: (opts) => store.reject(opts),
+    toggle: (key, opts) => store.toggle(key, opts),
+    save: (opts) => store.save(opts),
     setRoute: (route) => store.setRoute(route),
     has: (expr) => store.has(expr),
+    getConsentRecord: () => store.getConsentRecord(),
   };
 }
+
+export type { ConsentRecord, ConsentRecordSource };
 
 export type UseCategoryResult = {
   granted: boolean;

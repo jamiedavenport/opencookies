@@ -95,6 +95,57 @@ createConsentStore({ categories, gpc: { enabled: false } });
 
 `state.source` is `"default"` before any decision, `"gpc"` after GPC applies, and `"user"` once the visitor takes any action. Persist this alongside the decisions to keep "the browser said no" distinct from "the user said no" later.
 
+## Consent records
+
+When a decision is persisted via a `StorageAdapter`, the store serialises it as a versioned `ConsentRecord`:
+
+```ts
+type ConsentRecord = {
+  schemaVersion: 1;
+  decisions: Record<string, boolean>;
+  policyVersion: string;
+  decidedAt: string; // ISO-8601
+  jurisdiction: Jurisdiction | null;
+  locale: string;
+  source: "banner" | "preferences" | "api" | "import";
+};
+```
+
+`source` records _where_ the decision came from, separately from `state.source`:
+
+- `"banner"` — accepted/rejected from the cookie banner.
+- `"preferences"` — changed inside the preferences UI.
+- `"api"` — set via a programmatic call (override with `acceptAll({ source: "api" })`, etc.).
+- `"import"` — migrated from a legacy or unrecognised record.
+
+The store infers `source` from `state.route` at the moment the decision is taken; pass `{ source }` to any action to override it.
+
+Read the current record via `store.getConsentRecord()` (or the binding-level `useConsent().getConsentRecord()`). It returns `null` until a decision has been recorded.
+
+```ts
+const store = createConsentStore({
+  categories,
+  locale: "en-GB", // optional; falls back to navigator.language, then "en"
+  adapter: cookieAdapter(),
+});
+
+store.acceptAll();
+store.getConsentRecord();
+// {
+//   schemaVersion: 1,
+//   decisions: { essential: true, analytics: true, marketing: true },
+//   policyVersion: "",
+//   decidedAt: "2026-04-29T12:34:56.000Z",
+//   jurisdiction: "EEA",
+//   locale: "en-GB",
+//   source: "banner",
+// }
+```
+
+Records produced by older versions of OpenCookies are tolerated on read: missing fields fall back to safe defaults, the legacy `source: "user"` flag is mapped to `"banner"`, and any other unrecognised legacy source becomes `"import"`. The next user decision rewrites the record in the v1 shape.
+
+GPC alone does not produce a record — the visitor has not made a decision. `getConsentRecord()` keeps returning `null` until the user accepts, rejects, saves, or toggles a category.
+
 ## Script gating
 
 Third-party tag scripts (GA4, Meta Pixel, PostHog, …) need to be loaded _only_ after the visitor consents to the matching category — but typical site code calls `window.gtag(…)` from the moment the page boots. `gateScript` solves that gap: it injects the `<script>` tag once consent is granted, intercepts pre-consent calls to listed window globals, and replays them after the script and `init` have run.

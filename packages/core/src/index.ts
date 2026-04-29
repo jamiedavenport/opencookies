@@ -11,9 +11,11 @@ export {
 export { defineScript, gateScript, gateScripts } from "./scripts.ts";
 export { createConsentStore } from "./store.ts";
 export type {
+  ActionOptions,
   Category,
   ConsentExpr,
   ConsentRecord,
+  ConsentRecordSource,
   ConsentSource,
   ConsentState,
   ConsentStore,

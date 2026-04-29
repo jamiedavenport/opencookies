@@ -37,14 +37,14 @@ function Banner() {
           </button>
           <button
             type="button"
-            onClick={acceptNecessary}
+            onClick={() => acceptNecessary()}
             className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
           >
             Necessary only
           </button>
           <button
             type="button"
-            onClick={acceptAll}
+            onClick={() => acceptAll()}
             className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
           >
             Accept all
@@ -115,7 +115,7 @@ function Preferences() {
           </button>
           <button
             type="button"
-            onClick={save}
+            onClick={() => save()}
             className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
           >
             Save

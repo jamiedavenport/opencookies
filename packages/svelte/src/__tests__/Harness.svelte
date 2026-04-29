@@ -22,6 +22,8 @@
 <span data-testid="route">{consent.route}</span>
 <span data-testid="analytics-granted">{analytics.granted}</span>
 <span data-testid="decided-at">{consent.decidedAt ?? "null"}</span>
+<span data-testid="record-source">{consent.getConsentRecord()?.source ?? "null"}</span>
+<span data-testid="record-schema">{consent.getConsentRecord()?.schemaVersion ?? "null"}</span>
 
 {#if requires !== undefined}
   {#if withFallback}

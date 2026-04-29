@@ -572,14 +572,21 @@ describe("createConsentStore", () => {
       };
     }
 
-    it("hydrates state from a sync adapter on init", () => {
-      const { adapter } = makeAdapter({
+    function v1Record(overrides: Partial<ConsentRecord> = {}): ConsentRecord {
+      return {
+        schemaVersion: 1,
         decisions: { essential: true, analytics: true, marketing: false },
         jurisdiction: "EEA",
         policyVersion: "v2",
         decidedAt: "2026-04-01T00:00:00.000Z",
-        source: "user",
-      });
+        locale: "en-GB",
+        source: "banner",
+        ...overrides,
+      };
+    }
+
+    it("hydrates state from a sync adapter on init", () => {
+      const { adapter } = makeAdapter(v1Record());
       const store = createConsentStore(makeConfig({ adapter }));
       const s = store.getState();
       expect(s.decisions).toEqual({ essential: true, analytics: true, marketing: false });
@@ -590,14 +597,7 @@ describe("createConsentStore", () => {
 
     it("hydrates state from an async adapter and notifies subscribers", async () => {
       const adapter: StorageAdapter = {
-        read: () =>
-          Promise.resolve({
-            decisions: { essential: true, analytics: true, marketing: false },
-            jurisdiction: "UK",
-            policyVersion: "",
-            decidedAt: "2026-04-01T00:00:00.000Z",
-            source: "user",
-          }),
+        read: () => Promise.resolve(v1Record({ jurisdiction: "UK", policyVersion: "" })),
         write: () => {},
         clear: () => {},
       };
@@ -612,20 +612,14 @@ describe("createConsentStore", () => {
     });
 
     it("does not write back the just-hydrated record (no-op on init)", () => {
-      const { adapter, writes } = makeAdapter({
-        decisions: { essential: true, analytics: true, marketing: false },
-        jurisdiction: "EEA",
-        policyVersion: "v1",
-        decidedAt: "2026-04-01T00:00:00.000Z",
-        source: "user",
-      });
-      createConsentStore(makeConfig({ adapter, policyVersion: "v1" }));
+      const { adapter, writes } = makeAdapter(v1Record({ policyVersion: "v1" }));
+      createConsentStore(makeConfig({ adapter, policyVersion: "v1", locale: "en-GB" }));
       expect(writes).toEqual([]);
     });
 
     it("persists each user decision via adapter.write", () => {
       const { adapter, writes } = makeAdapter();
-      const store = createConsentStore(makeConfig({ adapter }));
+      const store = createConsentStore(makeConfig({ adapter, locale: "en-GB" }));
       store.acceptAll();
       expect(writes).toHaveLength(1);
       expect(writes[0]?.decisions).toEqual({
@@ -633,7 +627,9 @@ describe("createConsentStore", () => {
         analytics: true,
         marketing: true,
       });
-      expect(writes[0]?.source).toBe("user");
+      expect(writes[0]?.schemaVersion).toBe(1);
+      expect(writes[0]?.locale).toBe("en-GB");
+      expect(writes[0]?.source).toBe("banner");
 
       store.toggle("marketing");
       expect(writes).toHaveLength(2);
@@ -656,13 +652,14 @@ describe("createConsentStore", () => {
       const listener = vi.fn();
       store.subscribe(listener);
 
-      emit({
-        decisions: { essential: true, analytics: true, marketing: false },
-        jurisdiction: "EEA",
-        policyVersion: "",
-        decidedAt: "2026-04-02T00:00:00.000Z",
-        source: "user",
-      });
+      emit(
+        v1Record({
+          decisions: { essential: true, analytics: true, marketing: false },
+          policyVersion: "",
+          decidedAt: "2026-04-02T00:00:00.000Z",
+          source: "preferences",
+        }),
+      );
 
       expect(store.getState().decisions.analytics).toBe(true);
       expect(store.getState().decidedAt).toBe("2026-04-02T00:00:00.000Z");
@@ -699,16 +696,152 @@ describe("createConsentStore", () => {
     });
 
     it("locked categories stay true even if record persisted them as false", () => {
-      const { adapter } = makeAdapter({
-        decisions: { essential: false, analytics: true, marketing: false },
-        jurisdiction: null,
-        policyVersion: "",
-        decidedAt: "2026-04-01T00:00:00.000Z",
-        source: "user",
-      });
+      const { adapter } = makeAdapter(
+        v1Record({
+          decisions: { essential: false, analytics: true, marketing: false },
+          jurisdiction: null,
+          policyVersion: "",
+        }),
+      );
       const store = createConsentStore(makeConfig({ adapter }));
       expect(store.getState().decisions.essential).toBe(true);
       expect(store.getState().decisions.analytics).toBe(true);
+    });
+
+    it("migrates a legacy record on hydration ('user' source -> banner-shaped record)", () => {
+      const legacyRaw = {
+        decisions: { essential: true, analytics: true, marketing: false },
+        jurisdiction: "EEA",
+        policyVersion: "v1",
+        decidedAt: "2026-04-01T00:00:00.000Z",
+        source: "user",
+      };
+      const adapter: StorageAdapter = {
+        read: () => legacyRaw as unknown as ConsentRecord,
+        write: () => {},
+        clear: () => {},
+      };
+      const store = createConsentStore(makeConfig({ adapter, locale: "en-GB" }));
+      const record = store.getConsentRecord();
+      expect(record).not.toBeNull();
+      expect(record?.schemaVersion).toBe(1);
+      expect(record?.source).toBe("banner");
+      expect(record?.locale).toBe("en-GB");
+    });
+
+    it("hydrating from a malformed record (decidedAt missing) surfaces no record", () => {
+      const adapter: StorageAdapter = {
+        read: () =>
+          ({
+            decisions: { essential: true },
+            decidedAt: null,
+          }) as unknown as ConsentRecord,
+        write: () => {},
+        clear: () => {},
+      };
+      const store = createConsentStore(makeConfig({ adapter }));
+      expect(store.getConsentRecord()).toBeNull();
+      expect(store.getState().decidedAt).toBeNull();
+    });
+  });
+
+  describe("getConsentRecord", () => {
+    it("returns null pre-decision", () => {
+      const store = createConsentStore(makeConfig());
+      expect(store.getConsentRecord()).toBeNull();
+    });
+
+    it("returns a v1 record after acceptAll with route-inferred source 'banner'", () => {
+      const store = createConsentStore(makeConfig({ locale: "en-GB", policyVersion: "v2" }));
+      store.acceptAll();
+      const r = store.getConsentRecord();
+      expect(r).not.toBeNull();
+      expect(r?.schemaVersion).toBe(1);
+      expect(r?.locale).toBe("en-GB");
+      expect(r?.policyVersion).toBe("v2");
+      expect(r?.source).toBe("banner");
+      expect(r?.decisions).toEqual({ essential: true, analytics: true, marketing: true });
+    });
+
+    it("infers 'preferences' source when the user is in the preferences route", () => {
+      const store = createConsentStore(makeConfig());
+      store.setRoute("preferences");
+      store.toggle("analytics");
+      store.save();
+      expect(store.getConsentRecord()?.source).toBe("preferences");
+    });
+
+    it("honors an explicit opts.source override (e.g. 'api')", () => {
+      const store = createConsentStore(makeConfig());
+      store.acceptAll({ source: "api" });
+      expect(store.getConsentRecord()?.source).toBe("api");
+    });
+
+    it("does not surface a record for GPC-only state (no decision)", () => {
+      const store = createConsentStore(
+        makeConfig({
+          jurisdictionResolver: manualResolver("US-CA"),
+          gpc: { signal: true },
+        }),
+      );
+      expect(store.getState().source).toBe("gpc");
+      expect(store.getConsentRecord()).toBeNull();
+    });
+
+    it("does not write to the adapter for GPC-only state", () => {
+      const writes: ConsentRecord[] = [];
+      const adapter: StorageAdapter = {
+        read: () => null,
+        write: (r) => {
+          writes.push(r);
+        },
+        clear: () => {},
+      };
+      createConsentStore(
+        makeConfig({
+          jurisdictionResolver: manualResolver("US-CA"),
+          gpc: { signal: true },
+          adapter,
+        }),
+      );
+      expect(writes).toEqual([]);
+    });
+
+    it("falls back to 'banner' source after GPC + a user decision", () => {
+      const store = createConsentStore(
+        makeConfig({
+          jurisdictionResolver: manualResolver("US-CA"),
+          gpc: { signal: true },
+        }),
+      );
+      store.acceptAll();
+      expect(store.getConsentRecord()?.source).toBe("banner");
+    });
+  });
+
+  describe("locale resolution", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("uses config.locale when provided", () => {
+      const store = createConsentStore(makeConfig({ locale: "fr-FR" }));
+      store.acceptAll();
+      expect(store.getConsentRecord()?.locale).toBe("fr-FR");
+    });
+
+    it("falls back to navigator.language when config.locale is unset", () => {
+      vi.stubGlobal("navigator", { language: "de-DE" });
+      const store = createConsentStore(makeConfig());
+      store.acceptAll();
+      expect(store.getConsentRecord()?.locale).toBe("de-DE");
+    });
+
+    it("defaults to 'en' when neither config.locale nor navigator.language is available", () => {
+      vi.stubGlobal("navigator", {});
+      const store = createConsentStore(makeConfig());
+      store.acceptAll();
+      expect(store.getConsentRecord()?.locale).toBe("en");
     });
   });
 });

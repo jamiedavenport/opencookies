@@ -101,6 +101,18 @@ describe("useConsent", () => {
     expect(result.current.decidedAt).not.toBeNull();
     expect(result.current.route).toBe("closed");
   });
+
+  it("getConsentRecord returns null pre-decision and a v1 record after acceptAll", () => {
+    const { result } = renderHook(() => useConsent(), { wrapper: Wrapper });
+    expect(result.current.getConsentRecord()).toBeNull();
+    act(() => {
+      result.current.acceptAll();
+    });
+    const record = result.current.getConsentRecord();
+    expect(record).not.toBeNull();
+    expect(record?.schemaVersion).toBe(1);
+    expect(record?.source).toBe("banner");
+  });
 });
 
 describe("useCategory", () => {

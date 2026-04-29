@@ -4,11 +4,13 @@ import type { ConsentRecord } from "../types.ts";
 import { localStorageAdapter } from "./local-storage.ts";
 
 const sample: ConsentRecord = {
+  schemaVersion: 1,
   decisions: { essential: true, analytics: false },
   jurisdiction: "EEA",
   policyVersion: "v1",
   decidedAt: "2026-04-29T00:00:00.000Z",
-  source: "user",
+  locale: "en-GB",
+  source: "banner",
 };
 
 describe("localStorageAdapter", () => {

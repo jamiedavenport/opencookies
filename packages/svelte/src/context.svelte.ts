@@ -1,7 +1,9 @@
 import {
   createConsentStore,
+  type ActionOptions,
   type Category,
   type ConsentExpr,
+  type ConsentRecord,
   type ConsentState,
   type ConsentStore,
   type Jurisdiction,
@@ -58,16 +60,21 @@ export class ConsentRune {
     return this.#state.decidedAt;
   }
 
-  acceptAll = (): void => this.#store.acceptAll();
-  acceptNecessary = (): void => this.#store.acceptNecessary();
-  reject = (): void => this.#store.reject();
-  toggle = (key: string): void => this.#store.toggle(key);
-  save = (): void => this.#store.save();
+  acceptAll = (opts?: ActionOptions): void => this.#store.acceptAll(opts);
+  acceptNecessary = (opts?: ActionOptions): void => this.#store.acceptNecessary(opts);
+  reject = (opts?: ActionOptions): void => this.#store.reject(opts);
+  toggle = (key: string, opts?: ActionOptions): void => this.#store.toggle(key, opts);
+  save = (opts?: ActionOptions): void => this.#store.save(opts);
   setRoute = (route: Route): void => this.#store.setRoute(route);
 
   has = (expr: ConsentExpr): boolean => {
     void this.#state.decisions;
     return this.#store.has(expr);
+  };
+
+  getConsentRecord = (): ConsentRecord | null => {
+    void this.#state;
+    return this.#store.getConsentRecord();
   };
 }
 
