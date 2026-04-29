@@ -12,9 +12,14 @@
   "scripts": {
     "ready": "vp fmt && vp lint && vp run -r test && vp run -r build",
     "dev": "vp run docs#dev",
-    "prepare": "vp config"
+    "prepare": "vp config",
+    "changeset": "changeset",
+    "changeset:version": "changeset version && bun install --lockfile-only",
+    "changeset:publish": "vp run -r build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.31.0",
     "vite-plus": "latest"
   },
   "overrides": {

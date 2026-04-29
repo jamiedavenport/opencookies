@@ -19,6 +19,6 @@ jobs:
           node-version: "22"
           cache: true
       - run: vp install
+      - run: vp run -r build
       - run: vp check packages/*/src
       - run: vp test --run
-      - run: vp run -r build
