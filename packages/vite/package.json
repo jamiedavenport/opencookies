@@ -21,13 +21,19 @@
     "check": "vp check",
     "prepublishOnly": "vp run build"
   },
+  "dependencies": {
+    "@opencookies/scanner": "workspace:*"
+  },
   "devDependencies": {
+    "@opencookies/core": "workspace:*",
     "@types/node": "^25.5.0",
     "typescript": "^6.0.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
-    "vite-plus": "latest"
+    "vite-plus": "latest",
+    "vitest": "latest"
   },
   "peerDependencies": {
+    "@opencookies/core": "workspace:*",
     "vite": ">=5"
   }
 }
