@@ -11,7 +11,17 @@ export type Jurisdiction = {
   region: string;
 };
 
-export type ConsentExpr = { readonly __opencookiesExpr: true };
+export type ConsentExpr =
+  | string
+  | { and: ConsentExpr[] }
+  | { or: ConsentExpr[] }
+  | { not: ConsentExpr };
+
+export type UnknownCategoryBehavior = "throw" | "warn" | "silent";
+
+export type EvaluateOptions = {
+  onUnknownCategory?: UnknownCategoryBehavior;
+};
 
 export type ConsentState = {
   route: Route;
@@ -26,6 +36,7 @@ export type OpenCookiesConfig = {
   categories: Category[];
   policyVersion?: string;
   initialRoute?: Route;
+  onUnknownCategory?: UnknownCategoryBehavior;
 };
 
 export type ConsentStore = {
@@ -37,5 +48,5 @@ export type ConsentStore = {
   toggle(category: string): void;
   save(): void;
   setRoute(route: Route): void;
-  has(expr: string | ConsentExpr): boolean;
+  has(expr: ConsentExpr): boolean;
 };

@@ -1,3 +1,4 @@
+import { evaluate } from "./expr.ts";
 import type { ConsentExpr, ConsentState, ConsentStore, OpenCookiesConfig, Route } from "./types.ts";
 
 type Listener = (state: ConsentState) => void;
@@ -83,9 +84,10 @@ export function createConsentStore(config: OpenCookiesConfig): ConsentStore {
       if (state.route === route) return;
       commit({ ...state, route });
     },
-    has(expr: string | ConsentExpr) {
-      if (typeof expr !== "string") return false;
-      return state.decisions[expr] === true;
+    has(expr: ConsentExpr) {
+      return evaluate(expr, state, {
+        onUnknownCategory: config.onUnknownCategory,
+      });
     },
   };
 }

@@ -170,8 +170,8 @@ describe("createConsentStore", () => {
       expect(store.has("analytics")).toBe(true);
     });
 
-    it("returns false for unknown keys", () => {
-      expect(createConsentStore(makeConfig()).has("ghost")).toBe(false);
+    it("throws on unknown keys by default", () => {
+      expect(() => createConsentStore(makeConfig()).has("ghost")).toThrow();
     });
   });
 
