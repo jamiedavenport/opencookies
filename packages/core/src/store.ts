@@ -403,6 +403,7 @@ function mergeRecord(state: ConsentState, record: ConsentRecord | null): Consent
     jurisdiction: record.jurisdiction ?? state.jurisdiction,
     policyVersion: record.policyVersion || state.policyVersion,
     decidedAt: record.decidedAt,
+    route: state.route === "cookie" ? "closed" : state.route,
     source: "user",
     repromptReason: null,
   };

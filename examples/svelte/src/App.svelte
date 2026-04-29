@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Category } from "@opencookies/core";
+  import { localStorageAdapter } from "@opencookies/core/storage/local-storage";
   import { ConsentGate, setOpenCookiesContext } from "@opencookies/svelte";
   import AnalyticsFallback from "./components/AnalyticsFallback.svelte";
   import Banner from "./components/Banner.svelte";
@@ -27,7 +28,7 @@
     },
   ];
 
-  setOpenCookiesContext({ config: { categories } });
+  setOpenCookiesContext({ config: { categories, adapter: localStorageAdapter() } });
 </script>
 
 <div class="min-h-screen bg-slate-50 pb-32 text-slate-900">

@@ -1,4 +1,5 @@
 import type { Category } from "@opencookies/core";
+import { localStorageAdapter } from "@opencookies/core/storage/local-storage";
 import { OpenCookiesProvider } from "@opencookies/solid";
 import { render } from "solid-js/web";
 import App from "./App.tsx";
@@ -25,7 +26,7 @@ const categories: Category[] = [
 
 render(
   () => (
-    <OpenCookiesProvider config={{ categories }}>
+    <OpenCookiesProvider config={{ categories, adapter: localStorageAdapter() }}>
       <App />
     </OpenCookiesProvider>
   ),

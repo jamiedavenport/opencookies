@@ -595,6 +595,30 @@ describe("createConsentStore", () => {
       expect(s.source).toBe("user");
     });
 
+    it("closes the banner route when a stored record is hydrated on init", () => {
+      const { adapter } = makeAdapter(v1Record());
+      const store = createConsentStore(makeConfig({ adapter }));
+      expect(store.getState().route).toBe("closed");
+    });
+
+    it("preserves a non-default initialRoute on hydration (e.g. 'preferences')", () => {
+      const { adapter } = makeAdapter(v1Record());
+      const store = createConsentStore(makeConfig({ adapter, initialRoute: "preferences" }));
+      expect(store.getState().route).toBe("preferences");
+    });
+
+    it("closes the banner route after async hydration", async () => {
+      const adapter: StorageAdapter = {
+        read: () => Promise.resolve(v1Record()),
+        write: () => {},
+        clear: () => {},
+      };
+      const store = createConsentStore(makeConfig({ adapter }));
+      expect(store.getState().route).toBe("cookie");
+      await flushMicrotasks();
+      expect(store.getState().route).toBe("closed");
+    });
+
     it("hydrates state from an async adapter and notifies subscribers", async () => {
       const adapter: StorageAdapter = {
         read: () => Promise.resolve(v1Record({ jurisdiction: "UK", policyVersion: "" })),

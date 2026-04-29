@@ -1,4 +1,5 @@
 import type { Category } from "@opencookies/core";
+import { localStorageAdapter } from "@opencookies/core/storage/local-storage";
 import { OpenCookiesPlugin } from "@opencookies/vue";
 import { createApp } from "vue";
 import App from "./App.vue";
@@ -19,4 +20,6 @@ const categories: Category[] = [
   { key: "marketing", label: "Marketing", description: "Used to personalize ads and campaigns." },
 ];
 
-createApp(App).use(OpenCookiesPlugin, { config: { categories } }).mount("#app");
+createApp(App)
+  .use(OpenCookiesPlugin, { config: { categories, adapter: localStorageAdapter() } })
+  .mount("#app");
