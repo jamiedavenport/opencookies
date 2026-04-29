@@ -95,6 +95,49 @@ createConsentStore({ categories, gpc: { enabled: false } });
 
 `state.source` is `"default"` before any decision, `"gpc"` after GPC applies, and `"user"` once the visitor takes any action. Persist this alongside the decisions to keep "the browser said no" distinct from "the user said no" later.
 
+## Script gating
+
+Third-party tag scripts (GA4, Meta Pixel, PostHog, …) need to be loaded _only_ after the visitor consents to the matching category — but typical site code calls `window.gtag(…)` from the moment the page boots. `gateScript` solves that gap: it injects the `<script>` tag once consent is granted, intercepts pre-consent calls to listed window globals, and replays them after the script and `init` have run.
+
+```ts
+import { createConsentStore, defineScript, gateScript } from "@opencookies/core";
+
+const store = createConsentStore({ categories });
+
+const ga4 = defineScript({
+  id: "ga4",
+  requires: "analytics",
+  src: "https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX",
+  queue: ["dataLayer.push"],
+  init: () => {
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function gtag() {
+      window.dataLayer.push(arguments);
+    };
+    window.gtag("js", new Date());
+    window.gtag("config", "G-XXXXXXX");
+  },
+});
+
+gateScript(store, ga4);
+```
+
+`gateScript` is a free function (rather than a method on the store) so unused script-gating code is tree-shaken out of bundles that never import it. `defineScript` is a pure identity function; pair it with the snippet above for type-narrowing without dragging in the runtime.
+
+Useful options on the script definition:
+
+- `requires` is a `ConsentExpr` — same shape as `store.has`. Combine with `{ and: ["analytics", "marketing"] }` for scripts that need multiple categories.
+- `queue` lists window paths to intercept while gated. Dotted paths like `dataLayer.push` walk into existing objects (or create them — `dataLayer` defaults to an array). Pre-consent calls to `*.push` / `*.unshift` are mirrored into the underlying array immediately so a script that reads the buffer on load sees the same history.
+- `attrs` adds attributes to the injected `<script>` tag (e.g. `crossorigin`, `nonce`, `integrity`).
+
+`gateScript` returns a `dispose()`. While the script is still gated, `dispose()` removes the queue stubs and unsubscribes from the store. Once the script has loaded, `dispose()` is a no-op — see _No auto-revoke_ below.
+
+### No auto-revoke
+
+A loaded script cannot be un-loaded. If consent is later revoked, OpenCookies does **not** unmount the `<script>` tag, restore the queue stubs, or re-evaluate the gate. Recommend `location.reload()` to your users for a clean slate.
+
+For inline JSX gating (e.g. wrapping a `<MapWidget />` in a marketing-consent gate) the framework adapters expose `<ConsentGate>` with the same `requires` expression shape.
+
 ## License
 
 Apache-2.0

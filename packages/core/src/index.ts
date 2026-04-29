@@ -8,6 +8,7 @@ export {
   headerResolver,
   manualResolver,
 } from "./jurisdiction.ts";
+export { defineScript, gateScript, gateScripts } from "./scripts.ts";
 export { createConsentStore } from "./store.ts";
 export type {
   Category,
@@ -16,11 +17,14 @@ export type {
   ConsentState,
   ConsentStore,
   EvaluateOptions,
+  GateOptions,
   GPCConfig,
   Jurisdiction,
   JurisdictionResolver,
   OpenCookiesConfig,
   ResolverContext,
   Route,
+  ScriptDefinition,
+  ScriptEvent,
   UnknownCategoryBehavior,
 } from "./types.ts";

@@ -68,3 +68,23 @@ export type ConsentStore = {
   has(expr: ConsentExpr): boolean;
   refreshJurisdiction(req?: ResolverContext): Promise<Jurisdiction | null>;
 };
+
+export type ScriptDefinition = {
+  id: string;
+  requires: ConsentExpr;
+  src?: string;
+  attrs?: Record<string, string>;
+  init?: () => void;
+  queue?: string[];
+};
+
+export type ScriptEvent =
+  | { type: "script:loaded"; id: string }
+  | { type: "script:queued"; id: string; path: string; args: unknown[] }
+  | { type: "script:gated"; id: string };
+
+export type GateOptions = {
+  document?: Document;
+  window?: Window & Record<string, unknown>;
+  onEvent?: (event: ScriptEvent) => void;
+};
