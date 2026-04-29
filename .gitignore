@@ -25,3 +25,6 @@ dist-ssr
 
 # AI agent worktrees
 .claude/worktrees/
+
+# Scanner real-world tarball cache
+packages/scanner/tests/real-world/.cache/
