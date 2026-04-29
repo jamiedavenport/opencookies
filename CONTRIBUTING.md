@@ -63,6 +63,6 @@ The `cli` and `scripts` packages stay `private: true` and are skipped automatica
 
 These three steps are repo-level configuration that can't live in the codebase. They only need to be done once.
 
-1. **Install [`changeset-bot`](https://github.com/apps/changeset-bot)** on the `opencookies/opencookies` repo. Without it, PRs missing a changeset are silently allowed through.
+1. **Install [`changeset-bot`](https://github.com/apps/changeset-bot)** on the `jamiedavenport/opencookies` repo. Without it, PRs missing a changeset are silently allowed through.
 2. **Add the `NPM_TOKEN` secret** under Settings → Secrets and variables → Actions. Use a granular access token scoped to the `@opencookies` org with publish rights. Without it, `release.yml` opens version PRs but the publish step fails.
 3. **Reserve the `@opencookies` npm org** if not already claimed. The first publish fails with a clear error if the scope isn't owned.

@@ -118,7 +118,7 @@ OpenCookies pairs with [OpenPolicy](https://openpolicy.sh) for the full privacy 
 
 ## Status
 
-Pre-1.0 and under active development. APIs may change before v1. Track progress on the [roadmap](https://github.com/opencookies/opencookies/issues).
+Pre-1.0 and under active development. APIs may change before v1. Track progress on the [roadmap](https://github.com/jamiedavenport/opencookies/issues).
 
 ## License
 
