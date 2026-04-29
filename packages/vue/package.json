@@ -24,8 +24,11 @@
   "devDependencies": {
     "@opencookies/core": "workspace:*",
     "@types/node": "^25.5.0",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^15.0.0",
     "typescript": "^6.0.2",
     "vite-plus": "latest",
+    "vitest": "latest",
     "vue": "^3.5.0"
   },
   "peerDependencies": {
