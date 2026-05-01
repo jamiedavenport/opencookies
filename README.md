@@ -28,6 +28,9 @@ npm install @opencookies/core @opencookies/solid
 
 # Svelte
 npm install @opencookies/core @opencookies/svelte
+
+# Angular
+npm install @opencookies/core @opencookies/angular
 ```
 
 ## Quick start
@@ -106,6 +109,7 @@ The plugin scans your code for cookie writes and known third-party vendors, and 
 | [`@opencookies/vue`](./packages/vue/)         | Vue 3 adapter — plugin or `<OpenCookiesProvider>`, composables, `<ConsentGate>`               |
 | [`@opencookies/solid`](./packages/solid/)     | Solid adapter — signals-based hooks and provider                                              |
 | [`@opencookies/svelte`](./packages/svelte/)   | Svelte 5 runes adapter (+ Svelte 4 `Readable` fallback at `/stores`)                          |
+| [`@opencookies/angular`](./packages/angular/) | Angular 18+ adapter — `provideOpenCookies`, `ConsentService`, `injectCategory`, `*ocConsent`  |
 | [`@opencookies/scanner`](./packages/scanner/) | Static AST detection of cookie writes and vendor scripts                                      |
 | [`@opencookies/vite`](./packages/vite/)       | Vite plugin: surfaces ungated cookie / vendor calls in dev and CI                             |
 | [`@opencookies/cli`](./packages/cli/)         | Terminal UI for scans and config sync _(scaffold)_                                            |

@@ -1,0 +1,51 @@
+{
+  "name": "@opencookies/angular",
+  "version": "0.0.0",
+  "license": "Apache-2.0",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "module": "dist/fesm2022/opencookies-angular.mjs",
+  "typings": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/fesm2022/opencookies-angular.mjs"
+    },
+    "./package.json": {
+      "default": "./package.json"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json -c tsconfig.lib.json",
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "tslib": "^2.6.0"
+  },
+  "devDependencies": {
+    "@angular/common": "^19.0.0",
+    "@angular/compiler": "^19.0.0",
+    "@angular/compiler-cli": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "@opencookies/core": "workspace:*",
+    "@types/node": "^25.5.0",
+    "happy-dom": "^15.0.0",
+    "ng-packagr": "^19.0.0",
+    "typescript": "~5.6.0",
+    "vite-plus": "latest",
+    "vitest": "latest",
+    "zone.js": "^0.15.0"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=18.0.0",
+    "@angular/core": ">=18.0.0",
+    "@opencookies/core": "workspace:*"
+  }
+}
