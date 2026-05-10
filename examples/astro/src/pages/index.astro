@@ -1,0 +1,40 @@
+---
+import "../styles/global.css";
+import CookieBanner from "../components/CookieBanner.astro";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenCookies + Astro</title>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-900">
+    <header class="border-b border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+        <h1 class="text-lg font-semibold">OpenCookies + Astro</h1>
+        <button
+          type="button"
+          data-opencookies-open
+          class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
+        >
+          Cookie settings
+        </button>
+      </div>
+    </header>
+    <main class="mx-auto max-w-3xl px-6 py-8">
+      <p class="text-sm text-slate-600">
+        Minimal Astro page using <code>@opencookies/core</code> directly &mdash; no
+        framework adapter.
+      </p>
+    </main>
+    <CookieBanner />
+    <script>
+      document.querySelectorAll("[data-opencookies-open]").forEach((el) => {
+        el.addEventListener("click", () =>
+          window.dispatchEvent(new CustomEvent("opencookies:open")),
+        );
+      });
+    </script>
+  </body>
+</html>

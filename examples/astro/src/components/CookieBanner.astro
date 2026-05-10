@@ -1,0 +1,185 @@
+---
+const categories = [
+  {
+    key: "essential",
+    label: "Essential",
+    locked: true,
+    description: "Required for the site to work.",
+  },
+  {
+    key: "analytics",
+    label: "Analytics",
+    description: "Helps us understand how the site is used.",
+  },
+  {
+    key: "marketing",
+    label: "Marketing",
+    description: "Used to personalize ads and campaigns.",
+  },
+];
+---
+
+<div
+  data-opencookies-banner
+  hidden
+  class="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white shadow-lg"
+>
+  <div
+    class="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+  >
+    <p class="text-sm text-slate-700">
+      We use cookies to improve your experience. Choose what you'd like to
+      allow.
+    </p>
+    <div class="flex flex-wrap gap-2">
+      <button
+        type="button"
+        data-action="customize"
+        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
+      >
+        Customize
+      </button>
+      <button
+        type="button"
+        data-action="necessary"
+        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
+      >
+        Necessary only
+      </button>
+      <button
+        type="button"
+        data-action="all"
+        class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+      >
+        Accept all
+      </button>
+    </div>
+  </div>
+</div>
+
+<div
+  data-opencookies-prefs
+  hidden
+  class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4"
+>
+  <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+    <h2 class="text-base font-semibold text-slate-900">Cookie preferences</h2>
+    <p class="mt-1 text-sm text-slate-600">
+      Choose which categories of cookies to allow. Essential cookies are always
+      on.
+    </p>
+    <div class="mt-4 flex flex-col gap-2">
+      {
+        categories.map((c) => (
+          <label class="flex items-start justify-between gap-4 rounded-md border border-slate-200 px-4 py-3">
+            <span class="flex flex-col">
+              <span class="text-sm font-medium text-slate-900">{c.label}</span>
+              {c.description ? (
+                <span class="text-xs text-slate-500">{c.description}</span>
+              ) : null}
+            </span>
+            <input
+              type="checkbox"
+              data-category={c.key}
+              disabled={c.locked}
+              class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:opacity-50"
+            />
+          </label>
+        ))
+      }
+    </div>
+    <div class="mt-5 flex justify-end gap-2">
+      <button
+        type="button"
+        data-action="cancel"
+        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        data-action="save"
+        class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+      >
+        Save
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  import {
+    createConsentStore,
+    timezoneResolver,
+    type Category,
+  } from "@opencookies/core";
+  import { localStorageAdapter } from "@opencookies/core/storage/local-storage";
+
+  const categories: Category[] = [
+    {
+      key: "essential",
+      label: "Essential",
+      locked: true,
+      description: "Required for the site to work.",
+    },
+    {
+      key: "analytics",
+      label: "Analytics",
+      description: "Helps us understand how the site is used.",
+    },
+    {
+      key: "marketing",
+      label: "Marketing",
+      description: "Used to personalize ads and campaigns.",
+    },
+  ];
+
+  const store = createConsentStore({
+    categories,
+    adapter: localStorageAdapter(),
+    jurisdictionResolver: timezoneResolver(),
+  });
+
+  const banner = document.querySelector<HTMLElement>(
+    "[data-opencookies-banner]",
+  )!;
+  const prefs = document.querySelector<HTMLElement>(
+    "[data-opencookies-prefs]",
+  )!;
+  const checkboxes = prefs.querySelectorAll<HTMLInputElement>(
+    "input[data-category]",
+  );
+
+  const render = (state: ReturnType<typeof store.getState>) => {
+    banner.hidden = state.route !== "cookie";
+    prefs.hidden = state.route !== "preferences";
+    for (const cb of checkboxes) {
+      const key = cb.dataset.category;
+      if (key) cb.checked = state.decisions[key] ?? false;
+    }
+  };
+  store.subscribe(render);
+  render(store.getState());
+
+  banner
+    .querySelector('[data-action="customize"]')!
+    .addEventListener("click", () => store.setRoute("preferences"));
+  banner
+    .querySelector('[data-action="necessary"]')!
+    .addEventListener("click", () => store.acceptNecessary());
+  banner
+    .querySelector('[data-action="all"]')!
+    .addEventListener("click", () => store.acceptAll());
+
+  for (const cb of checkboxes) {
+    cb.addEventListener("change", () => store.toggle(cb.dataset.category!));
+  }
+  prefs
+    .querySelector('[data-action="cancel"]')!
+    .addEventListener("click", () => store.setRoute("cookie"));
+  prefs
+    .querySelector('[data-action="save"]')!
+    .addEventListener("click", () => store.save());
+
+  window.addEventListener("opencookies:open", () => store.setRoute("cookie"));
+</script>
