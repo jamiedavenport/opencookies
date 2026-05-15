@@ -57,7 +57,7 @@ Releases are driven by [`changesets/action`](https://github.com/changesets/actio
 
 You don't run `changeset version` or `changeset publish` locally — both are workflow-driven.
 
-The `cli` and `scripts` packages stay `private: true` and are skipped automatically.
+The `scripts` package stays `private: true` and is skipped automatically.
 
 ## Post-merge setup
 

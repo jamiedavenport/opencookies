@@ -67,7 +67,7 @@ On every save, the plugin re-runs the scanner against the changed file only (no 
 
 ## autoSync
 
-`autoSync: true` flags vendor categories your scan detected that are not yet declared in `config.categories`. The plugin prints a suggested snippet — it does not write to disk. Persisted sync (writing to your config file) is handled by `@opencookies/cli`.
+`autoSync: true` flags vendor categories your scan detected that are not yet declared in `config.categories`. The plugin prints a suggested snippet — it does not write to disk; copy the declarations into your config yourself.
 
 ## Suppression
 

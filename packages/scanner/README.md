@@ -3,8 +3,8 @@
 Static cookie and vendor detection for OpenCookies. Scans your source for
 known third-party scripts and the cookies they (or your code) set.
 
-The scanner is a pure library. The Vite plugin (`@opencookies/vite`) and
-the audit CLI (`@opencookies/cli`) are built on top of it.
+The scanner is a pure library. The Vite plugin (`@opencookies/vite`) is
+built on top of it.
 
 ## Install
 
@@ -146,7 +146,6 @@ allowlist of known-clean files. The cache is reused across runs.
 ## See also
 
 - [`@opencookies/vite`](../vite/) — Vite plugin that runs the scanner during dev and CI (recommended; you usually don't call the scanner directly)
-- [`@opencookies/cli`](../cli/) — terminal entry point for one-off scans and config sync
 - [`@opencookies/core`](../core/) — runtime that actually enforces the consent decisions the scanner is checking for
 
 ## License

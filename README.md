@@ -112,7 +112,6 @@ The plugin scans your code for cookie writes and known third-party vendors, and 
 | [`@opencookies/angular`](./packages/angular/) | Angular 18+ adapter — `provideOpenCookies`, `ConsentService`, `injectCategory`, `*ocConsent`  |
 | [`@opencookies/scanner`](./packages/scanner/) | Static AST detection of cookie writes and vendor scripts                                      |
 | [`@opencookies/vite`](./packages/vite/)       | Vite plugin: surfaces ungated cookie / vendor calls in dev and CI                             |
-| [`@opencookies/cli`](./packages/cli/)         | Terminal UI for scans and config sync _(scaffold)_                                            |
 | [`@opencookies/scripts`](./packages/scripts/) | Pre-built script integrations: GA4, Meta Pixel, PostHog, Segment, GTM, Hotjar                 |
 
 Until a docs site lands, each package README is the canonical reference. Shared concepts (categories, GPC, jurisdiction, re-consent triggers, script gating, storage adapters) live in [`@opencookies/core`](./packages/core/); the framework adapters are thin wrappers over it.
